@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASM Label Generator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --primary:#003a5d;--accent:#5b9bd5;
+    --success:#10b981;--error:#ef4444;
+    --bg:#f0f4f8;--surface:#ffffff;--border:#e2e8f0;
+    --text:#1e293b;--dim:#64748b;
+    --mono:'JetBrains Mono',monospace;--sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  body{font-family:var(--sans);background:linear-gradient(135deg,#003a5d 0%,#5b9bd5 100%);min-height:100vh;padding:1.5rem;color:var(--text)}
+  .container{max-width:1400px;margin:0 auto}
+
+  /* Header */
+  .header{text-align:center;margin-bottom:2rem}
+  .header h1{font-size:2.2rem;font-weight:600;color:#fff;margin-bottom:.3rem;text-shadow:0 2px 4px rgba(0,0,0,.1)}
+  .header p{color:rgba(255,255,255,.85);font-size:1rem}
+
+  /* Card */
+  .card{background:var(--surface);border-radius:12px;padding:2rem;box-shadow:0 20px 60px rgba(0,0,0,.25);margin-bottom:1.5rem}
+
+  /* Toggle-all in header */
+  .th-toggle{display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:500;white-space:nowrap}
+  .th-toggle input{accent-color:#fff;cursor:pointer;width:13px;height:13px}
+
+  /* Success bar */
+  .success-bar{background:#ecfdf5;border-left:4px solid var(--success);padding:10px 16px;border-radius:0 6px 6px 0;margin-bottom:1.25rem;font-size:.9rem;color:#065f46;font-weight:500}
+
+  /* Docket header */
+  .docket-hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
+  .docket-hdr h3{font-size:1.1rem;font-weight:600;color:var(--primary)}
+  .pills{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{background:#eef4fb;color:var(--primary);font-family:var(--mono);font-size:.7rem;font-weight:500;padding:4px 10px;border-radius:4px}
+
+  /* Table */
+  .table-wrap{overflow-x:auto;margin:0 -.25rem;padding:0 .25rem}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:750px}
+  thead{background:var(--primary)}
+  th{text-align:left;padding:10px 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#fff;font-weight:500}
+  td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+  tr:hover td{background:#f8fbff}
+  .c-qty{width:55px}
+  .c-single{width:62px;text-align:center}
+  .c-line{width:50px}
+  .c-desc{min-width:300px}
+  .c-notes{min-width:240px}
+  .c-x{width:32px;text-align:center}
+
+  /* Editable cells */
+  table input[type="number"]{font-family:var(--mono);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);text-align:center}
+  table input[type="number"]:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(91,155,213,.15)}
+  .row-check{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .line-input{font-family:var(--mono);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);text-align:center}
+  .line-input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(91,155,213,.15)}
+  .desc-input{font-family:var(--mono);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);resize:none;overflow:hidden;field-sizing:content;min-height:28px;line-height:1.5;display:block}
+  .desc-input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(91,155,213,.15)}
+
+  /* Notes cell */
+  .notes-display{font-size:.78rem;color:var(--text);white-space:pre-wrap;line-height:1.5;cursor:pointer;padding:4px 6px;border-radius:4px;border:1px solid transparent;min-height:28px;transition:.15s}
+  .notes-display:hover{background:#f1f5f9;border-color:var(--border)}
+  .notes-edit{display:none}
+  .notes-edit.active{display:block}
+  .notes-display.hidden{display:none}
+  .notes-textarea{font-family:var(--mono);font-size:.82rem;padding:6px;border:1px solid var(--accent);border-radius:4px;background:#fff;width:100%;color:var(--text);resize:none;overflow:hidden;field-sizing:content;min-height:36px;line-height:1.5;box-shadow:0 0 0 2px rgba(91,155,213,.15)}
+  .notes-actions{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+  .notes-actions button{font-family:var(--sans);font-size:.72rem;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:500;border:none;transition:.15s}
+  .btn-add-notes{background:#eef4fb;color:var(--primary);border:1px solid var(--accent) !important}
+  .btn-add-notes:hover{background:var(--accent);color:#fff}
+  .btn-save{background:var(--success);color:#fff}
+  .btn-save:hover{background:#059669}
+  .btn-cancel{background:#f8fafc;color:var(--dim);border:1px solid var(--border) !important}
+  .btn-cancel:hover{background:var(--border)}
+
+  /* Delete button */
+  .xbtn{background:none;border:none;cursor:pointer;padding:4px;color:var(--dim);border-radius:4px;transition:.15s;display:inline-flex;align-items:center;justify-content:center}
+  .xbtn:hover{background:#fef2f2;color:var(--error)}
+  .xbtn svg{width:14px;height:14px}
+
+  /* Add row */
+  .add-bar{padding-top:8px}
+  .add-btn{background:none;border:1px dashed var(--border);padding:5px 14px;font-family:var(--sans);font-size:.8rem;font-weight:500;border-radius:6px;cursor:pointer;color:var(--dim);transition:.15s}
+  .add-btn:hover{border-color:var(--accent);color:var(--accent);background:#f0f7ff}
+
+  /* Notes Popup Modal */
+  .notes-popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998}
+  .notes-popup-overlay.show{display:block}
+  .notes-popup{display:none;position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:1.5rem;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.3);width:420px;max-height:70vh;overflow-y:auto}
+  .notes-popup.show{display:block}
+  .notes-popup-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:2px solid var(--border)}
+  .notes-popup-hdr h4{color:var(--primary);font-size:1rem}
+  .popup-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--dim);padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+  .popup-close:hover{background:var(--bg);color:var(--text)}
+  .snippet{display:flex;align-items:flex-start;padding:.75rem;margin-bottom:.5rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:.15s}
+  .snippet:hover{background:var(--bg);border-color:var(--accent)}
+  .snippet input[type="checkbox"]{margin-right:.75rem;margin-top:.2rem;cursor:pointer;accent-color:var(--accent)}
+  .snippet-body{flex:1}
+  .snippet-title{font-weight:600;color:var(--primary);margin-bottom:.15rem;font-size:.88rem}
+  .snippet-preview{font-size:.8rem;color:var(--dim);white-space:pre-wrap}
+  .popup-actions{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)}
+  .btn-insert{width:100%;background:var(--accent);color:#fff;border:none;padding:.7rem;border-radius:6px;font-size:.92rem;font-weight:600;cursor:pointer;font-family:var(--sans)}
+  .btn-insert:hover{background:var(--primary)}
+
+  /* Settings card */
+  .summary{padding:12px 18px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:500;color:#065f46}
+  .summary .n{font-family:var(--mono);font-size:1.3rem;font-weight:700}
+  .settings-row{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-top:1rem}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:.7rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}
+  .field select{font-family:var(--mono);font-size:.85rem;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text)}
+  .acts{display:flex;align-items:center;gap:10px;margin-top:1.25rem}
+  .btn{padding:12px 28px;font-family:var(--sans);font-size:.95rem;font-weight:600;border-radius:8px;cursor:pointer;transition:.15s;border:none;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary{background:linear-gradient(135deg,var(--accent) 0%,#0284c7 100%);color:#fff}
+  .btn-primary:hover{background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 100%);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,58,93,.3)}
+  .btn-primary:disabled{background:var(--border);cursor:not-allowed;transform:none;box-shadow:none}
+  .btn-secondary{background:none;border:1px solid var(--border);color:var(--dim)}
+  .btn-secondary:hover{border-color:var(--dim);color:var(--text)}
+  .msg{margin-top:12px;font-size:.85rem;color:var(--dim)}
+  .msg.err{color:var(--error);background:#fef2f2;padding:10px 14px;border-radius:8px;border:1px solid #fecaca}
+  .msg.ok{color:#065f46;background:#ecfdf5;padding:10px 14px;border-radius:8px;border:1px solid #a7f3d0}
+
+
+  @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .header{animation:slideDown .5s ease-out}
+  .card{animation:fadeIn .6s ease-out .15s both}
+
+  /* ── Phase 1: Label preview layout ── */
+  .content-with-preview{display:grid;grid-template-columns:1fr 360px;gap:1.25rem;align-items:start;margin-bottom:1.25rem}
+  .content-with-preview > .card{margin-bottom:0}
+  @media(max-width:1100px){.content-with-preview{grid-template-columns:1fr}}
+
+  .preview-panel{background:var(--surface);border-radius:10px;padding:1.25rem;box-shadow:0 20px 60px rgba(0,0,0,.25);position:sticky;top:1.5rem}
+  .preview-panel-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+  .preview-panel-hdr h4{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:0}
+  .preview-size-tag{font-family:var(--mono);font-size:.65rem;color:var(--dim);background:var(--bg);padding:2px 7px;border-radius:3px}
+  .label-wrap{background:#e8edf2;border-radius:6px;padding:10px;display:flex;align-items:center;justify-content:center;min-height:192px}
+  .label-preview{width:320px;height:160px;background:#fff;border:1px solid #c0c8d4;border-radius:2px;padding:7px 10px;font-family:Arial,Helvetica,sans-serif;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.15);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;transition:height .25s ease}
+  .lp-header{display:flex;justify-content:space-between;font-size:8.5px;font-weight:700;color:#3a3a3a;margin-bottom:3px;flex-shrink:0;line-height:1.2}
+  .lp-rule{border:none;border-top:1px solid #888;margin:0 0 4px;flex-shrink:0}
+  .lp-desc{font-size:17px;font-weight:700;line-height:1.18;color:#000;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .lp-ids{font-size:13px;font-weight:700;color:#000;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-info{font-size:10px;color:#222;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-paint{font-size:9.5px;font-weight:700;color:#000;margin-bottom:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .lp-due{font-size:13px;font-weight:700;color:#000;margin-top:auto;padding-bottom:2px}
+  .lp-footer{display:flex;justify-content:space-between;font-size:8.5px;font-weight:700;color:#444;margin-top:auto;padding-top:2px;border-top:1px solid #ddd;flex-shrink:0;line-height:1.2}
+  .lp-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:.78rem;text-align:center;font-family:var(--sans);line-height:1.5}
+  .preview-hint{font-size:.7rem;color:var(--dim);text-align:center;margin-top:.6rem;margin-bottom:0}
+
+  /* Updated label design — preview classes */
+  .lp-del{color:#888;font-size:8px;font-weight:700}
+  .lp-rule-thick{border-top-width:1.5px !important;border-top-color:#404040 !important;margin:3px 0 !important}
+  .lp-body{display:flex;align-items:flex-start;gap:3px;margin-bottom:2px;min-height:0}
+  .lp-body-left{flex:1;min-width:0}
+  .lp-body-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
+  .lp-qr-box{width:33px;height:33px;background:#f0f4f8;border:1px dashed #b0c0d0;border-radius:1px;display:flex;align-items:center;justify-content:center;font-size:6px;color:#94a3b8;letter-spacing:.3px;font-family:var(--mono)}
+  .lp-counter{font-size:15px;font-weight:700;color:#000;text-align:right;line-height:1.2;margin-top:2px}
+  .lp-footer-rule{border:none;border-top:1.5px solid #404040;margin-top:auto;margin-bottom:3px;flex-shrink:0}
+  .lp-footer-cust{font-size:8.5px;font-weight:700;color:#222;flex-shrink:0}
+
+  /* Row selection highlight */
+  tr.row-selected td{background:#eef6ff !important;box-shadow:inset 3px 0 0 var(--accent)}
+  tr.row-selected:hover td{background:#e6f0fa !important}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>ASM Label Generator</h1>
+  </div>
+
+  <input type="file" id="fileIn" accept="application/pdf" style="display:none">
+
+  <div id="out" style="display:none">
+    <div class="success-bar" id="successBar"></div>
+
+    <div class="content-with-preview">
+    <div class="card">
+      <div class="docket-hdr">
+        <h3 id="title">Delivery Docket</h3>
+        <div class="pills">
+          <span class="pill" id="pPO"></span><span class="pill" id="pDel"></span><span class="pill" id="pCust"></span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+      <table><thead><tr>
+        <th class="c-qty">Qty</th>
+        <th class="c-single"><label class="th-toggle"><input type="checkbox" id="toggleAll" title="Toggle all to single label"> Single</label></th>
+        <th class="c-line">Line</th>
+        <th class="c-desc">Description</th>
+        <th class="c-notes">Notes</th>
+        <th class="c-x"></th>
+      </tr></thead><tbody id="tbody"></tbody></table>
+      </div>
+      <div class="add-bar"><button class="add-btn" id="addRowBtn">+ Add row</button></div>
+    </div>
+
+    <div class="preview-panel" id="previewSidebar">
+      <div class="preview-panel-hdr">
+        <h4>Label Preview</h4>
+        <span class="preview-size-tag" id="previewSizeTag">100 × 50 mm</span>
+      </div>
+      <div class="label-wrap">
+        <div class="label-preview" id="labelPreview">
+          <div class="lp-empty">Select a row<br>to preview its label</div>
+        </div>
+      </div>
+      <p class="preview-hint" id="previewHint">Click any row to preview &bull; Edits update live</p>
+    </div>
+    </div><!-- /.content-with-preview -->
+
+    <div class="card">
+      <div class="summary"><span class="n" id="nLabels">0</span><span>labels will be generated</span></div>
+      <div class="settings-row">
+        <div class="field"><label>Label size</label>
+          <select id="lSize">
+            <option value="100x50">100 &times; 50 mm</option>
+            <option value="100x60">100 &times; 60 mm</option>
+            <option value="100x75">100 &times; 75 mm</option>
+          </select>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-primary" id="goBtn">Generate Label PDF</button>
+        <button class="btn btn-secondary" id="resetBtn">Start over</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <pre id="dbg" style="display:none"></pre>
+  </div>
+</div>
+
+<!-- Notes popup -->
+<div class="notes-popup-overlay" id="popupOverlay"></div>
+<div class="notes-popup" id="notesPopup">
+  <div class="notes-popup-hdr">
+    <h4>Add from Notes</h4>
+    <button class="popup-close" id="popupClose">&times;</button>
+  </div>
+  <div id="snippetList"></div>
+  <div class="popup-actions">
+    <button class="btn-insert" id="insertBtn">Insert Selected</button>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let info = { po:'', delivery:'', customer:'' };
+let parsedNotes = []; // Store raw parsed notes per row for "Add from Notes"
+
+/* ─── Auto-load from parent page via postMessage ─── */
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'loadPdf' && event.data.pdfBase64) {
+    try {
+      const binary = atob(event.data.pdfBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      loadFromBuffer(bytes.buffer);
+    } catch (err) {
+      console.error('Failed to load PDF from parent:', err);
+      showErr('Could not load PDF data: ' + err.message);
+    }
+  }
+});
+
+async function loadFromFile(file) { loadFromBuffer(await file.arrayBuffer()); }
+
+async function loadFromBuffer(ab) {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let text = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let prevY = null, buf = '';
+      for (const it of tc.items) {
+        const y = Math.round(it.transform[5]);
+        if (prevY !== null && Math.abs(y - prevY) > 3) { text += buf.trimEnd() + '\n'; buf = ''; }
+        buf += it.str + ' ';
+        prevY = y;
+      }
+      if (buf.trim()) text += buf.trimEnd() + '\n';
+      text += '===PAGE===\n';
+    }
+    document.getElementById('dbg').textContent = text;
+    parse(text);
+  } catch(err) {
+    showErr('Could not read PDF: ' + err.message);
+    console.error(err);
+  }
+}
+
+/* ─── Parser ─── */
+const SKIP = [
+  /DELIVERY\s*#/i, /Academy\s+Sheetmetal/i, /Pendlebury/i, /office@/i,
+  /27100479187/, /0427\s*152/, /^\s*Created\s*$/i, /^\s*Required\s*$/i,
+  /^\s*PO\s*$/i, /QBO\s+Order/i, /DELIVER\s+FOR/i, /PICK\s+UP\s+FOR/i,
+  /^\s*CONTACT\s*$/i, /^\s*UGL\s+LIMITED\s*$/i, /^\s*QTY\b.*DESCRIPTION/i,
+  /^\s*EACH\s*$/i, /^\s*TOTAL\s*$/i, /^\s*\d+\s+of\s+\d+\s*$/i,
+  /^\s*\d{2}\/\d{2}\/\d{4}\s*\(\w+\)\s*$/,
+  /^\s*Craig\s+White\s*$/i, /Broadmeadow/i, /Wales\s+Australia/i,
+  /===PAGE===/, /^\s*\*\*.*\*\*\s*$/, /^\s*$/,
+];
+
+function parse(text) {
+  const poM = text.match(/\bPO\s+(\d{7,10})\b/) || text.match(/\b(4\d{9})\b/);
+  info.po = poM ? poM[1] : '';
+  const delM = text.match(/DELIVERY\s*#\s*(\d+)/i);
+  info.delivery = delM ? delM[1] : '';
+  info.customer = /UGL/i.test(text) ? 'UGL LIMITED' : '';
+
+  const rawLines = text.split('\n');
+  const content = rawLines.filter(l => !SKIP.some(p => p.test(l)));
+
+  const blocks = [];
+  let cur = null;
+  for (const line of content) {
+    const t = line.trim();
+    if (!t) continue;
+    const qm = t.match(/^(\d{1,3})\s{2,}(\S.*)/) || t.match(/^(\d{1,3})\s+([A-Z].*)/);
+    if (qm && parseInt(qm[1]) <= 500) {
+      if (cur) blocks.push(cur);
+      cur = { qty: parseInt(qm[1]), lines: [qm[2]] };
+    } else if (cur) {
+      cur.lines.push(t);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  const items = [];
+  parsedNotes = [];
+  for (const block of blocks) {
+    const item = parseBlock(block);
+    if (item) items.push(item);
+  }
+
+  if (!items.length) {
+    showErr('No line items found. Click "Show raw PDF text" to see what was extracted.');
+    document.getElementById('out').style.display = 'block';
+    return;
+  }
+  show(items);
+}
+
+function parseBlock(block) {
+  const allText = block.lines.join('\n');
+
+  // Extract fields
+  const lineM = allText.match(/LINE\s*#\s*(\d+)/i);
+  const lineNum = lineM ? lineM[1] : '';
+
+  const refM = allText.match(/PROJECT\s+(R-\d+)/i) || allText.match(/\|\s*(R-\d+)/i);
+  const ref = refM ? refM[1] : '';
+
+  const dueM = allText.match(/(?:due|DUE)\s+(\d{1,2}[\/-]\w{2,9}[\/-]\d{2,4})/i);
+  const dueDate = dueM ? dueM[1] : '';
+
+  const dwgM = allText.match(/\b([A-Z]\d{3}-\d{4,5})\b/);
+  const drawing = dwgM ? dwgM[1] : '';
+
+  // Part ID: 7-10 digit number that isn't the PO
+  const partIdM = allText.match(/\b(\d{7,10})\b/g);
+  let partId = '';
+  if (partIdM) {
+    for (const m of partIdM) {
+      if (m !== info.po && m !== info.delivery) { partId = m; break; }
+    }
+  }
+
+  const docM = allText.match(/Doc\s*No\.?\s*([\w-]+)/i);
+  const docNo = docM ? docM[1] : '';
+
+  // Paint spec (multi-line)
+  let paintSpec = '';
+  const paintIdx = block.lines.findIndex(l => /Painting\s+Required/i.test(l));
+  if (paintIdx >= 0) {
+    const parts = [];
+    const same = block.lines[paintIdx].replace(/Painting\s+Required[;:]?\s*/i, '').trim();
+    if (same) parts.push(same);
+    for (let j = paintIdx + 1; j < block.lines.length; j++) {
+      const pl = block.lines[j].trim();
+      if (/^(due|DUE)\s/i.test(pl)) break;
+      if (/LINE\s*#/i.test(pl)) break;
+      if (/^(FAI|Material\s+cert)/i.test(pl)) break;
+      if (/^\d{1,3}\s+[A-Z]/i.test(pl)) break;
+      parts.push(pl);
+    }
+    paintSpec = parts.join('; ').replace(/\s+/g, ' ').trim();
+    paintSpec = paintSpec.replace(/\s*\d{2}\s+[A-Z]{3}\s+\d{4}\s+\d{2}:\d{2}\s*/, '').trim();
+  }
+
+  // FAI & Material certs
+  const hasFAI = /FAI\s+to\s+be\s+completed/i.test(allText);
+  const hasMatCert = /Material\s+cert/i.test(allText);
+
+  // Description: extract the actual text part name
+  let descText = '';
+  const firstLine = block.lines[0] || '';
+  if (/^(PROJECT\s+R-|LINE\s*#)/i.test(firstLine)) {
+    if (lineM) {
+      const lineRow = block.lines.find(l => /LINE\s*#/i.test(l)) || '';
+      const pipes = lineRow.split('|').map(s => s.trim());
+      for (const p of pipes) {
+        if (/LINE\s*#/i.test(p)) continue;
+        if (/^R-\d+$/i.test(p)) continue;
+        if (/^\d+$/.test(p)) continue;
+        if (/^[A-Z]\d{3}-\d{4,5}$/.test(p)) continue;
+        if (p.length > 2) { descText = p; break; }
+      }
+    }
+    if (!descText) {
+      const lineIdx = block.lines.findIndex(l => /LINE\s*#/i.test(l));
+      if (lineIdx >= 0 && lineIdx + 1 < block.lines.length) {
+        const next = block.lines[lineIdx + 1].trim();
+        if (next && !/^(Doc|due|DUE|Painting|FAI|Material|PROJECT|\d)/i.test(next)) descText = next;
+      }
+    }
+  } else {
+    descText = firstLine.replace(/\|?\s*$/, '').trim();
+  }
+
+  // Build formatted description: DESC | PART_ID | DRAWING
+  let description = descText;
+  const descParts = [descText];
+  if (partId && !descText.includes(partId)) descParts.push(partId);
+  if (drawing && !descText.includes(drawing)) descParts.push(drawing);
+  description = descParts.filter(Boolean).join(' | ');
+  if (!description && docNo) description = docNo;
+
+  // Build default notes: LINE# + PROJECT, then Due
+  const noteLines = [];
+  if (lineNum || ref) {
+    const p = [];
+    if (lineNum) p.push('LINE# ' + lineNum);
+    if (ref) p.push('PROJECT ' + ref);
+    noteLines.push(p.join(' | '));
+  }
+  if (dueDate) noteLines.push('Due ' + dueDate);
+
+  // Store raw parsed data for "Add from Notes" snippets
+  parsedNotes.push({
+    paintSpec, ref, dueDate, hasFAI, hasMatCert, lineNum, docNo
+  });
+
+  return {
+    qty: block.qty, lineNum,
+    description: description.replace(/\s+/g, ' ').trim(),
+    notes: noteLines.join('\n'),
+  };
+}
+
+/* ─── Display ─── */
+function show(items) {
+  document.getElementById('out').style.display = 'block';
+  document.getElementById('title').textContent = 'Delivery #' + (info.delivery || '?');
+  document.getElementById('pPO').textContent = info.po ? 'PO ' + info.po : '';
+  document.getElementById('pDel').textContent = info.delivery ? 'DEL #' + info.delivery : '';
+  document.getElementById('pCust').textContent = info.customer;
+  document.getElementById('successBar').textContent = '\u2713 Extracted ' + items.length + ' line items from delivery #' + (info.delivery || '?');
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  items.forEach((it, idx) => addRowToTable(it, idx));
+  recount();
+  // Auto-select first row so preview is populated immediately
+  const firstRow = tb.firstElementChild;
+  if (firstRow) selectRow(firstRow);
+}
+
+function h(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+function addRowToTable(it, idx) {
+  const tr = document.createElement('tr');
+  const rowIdx = idx !== undefined ? idx : parsedNotes.length; // for manually added rows
+  tr.dataset.rowIdx = rowIdx;
+  tr.innerHTML = `
+    <td class="c-qty"><input type="number" min="1" value="${it?it.qty:1}"></td>
+    <td class="c-single" style="text-align:center"><input type="checkbox" class="row-check"></td>
+    <td class="c-line"><input class="line-input" value="${it?h(it.lineNum):''}"></td>
+    <td class="c-desc"><textarea class="desc-input" rows="1">${it?h(it.description):''}</textarea></td>
+    <td class="c-notes">
+      <div class="notes-display">${it ? h(it.notes).replace(/\n/g,'<br>') : '<span style="color:#94a3b8">click to edit</span>'}</div>
+      <div class="notes-edit">
+        <textarea class="notes-textarea">${it?h(it.notes):''}</textarea>
+        <div class="notes-actions">
+          <button class="btn-add-notes">+ Add from Notes</button>
+          <button class="btn-save">Save</button>
+          <button class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </td>
+    <td class="c-x"><button class="xbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
+
+  // Wire events
+  tr.querySelector('input[type="number"]').addEventListener('change', recount);
+  tr.querySelector('.row-check').addEventListener('change', recount);
+  tr.querySelector('.xbtn').addEventListener('click', () => {
+    if (selectedRowEl === tr) selectRow(null);
+    tr.remove(); recount();
+  });
+
+  // Row selection for live preview
+  tr.addEventListener('click', e => {
+    if (e.target.closest('.xbtn,.btn-add-notes,.btn-save,.btn-cancel') || e.target.type === 'checkbox') return;
+    selectRow(tr);
+  });
+  tr.querySelectorAll('input:not([type=checkbox]), textarea.desc-input').forEach(inp =>
+    inp.addEventListener('input', () => { if (selectedRowEl === tr) updatePreview(); })
+  );
+
+  // Notes click-to-edit
+  const display = tr.querySelector('.notes-display');
+  const edit = tr.querySelector('.notes-edit');
+  const textarea = tr.querySelector('.notes-textarea');
+
+  display.addEventListener('click', () => {
+    display.classList.add('hidden');
+    edit.classList.add('active');
+    textarea.focus();
+  });
+
+  tr.querySelector('.btn-save').addEventListener('click', () => {
+    display.innerHTML = h(textarea.value).replace(/\n/g, '<br>') || '<span style="color:#94a3b8">click to edit</span>';
+    display.classList.remove('hidden');
+    edit.classList.remove('active');
+    if (selectedRowEl === tr) updatePreview();
+  });
+
+  tr.querySelector('.btn-cancel').addEventListener('click', () => {
+    textarea.value = display.textContent === 'click to edit' ? '' : display.textContent.replace(/<br>/g, '\n');
+    display.classList.remove('hidden');
+    edit.classList.remove('active');
+  });
+
+  tr.querySelector('.btn-add-notes').addEventListener('click', () => {
+    openNotesPopup(tr);
+  });
+
+  document.getElementById('tbody').appendChild(tr);
+}
+
+function addRow() {
+  parsedNotes.push({ paintSpec:'', ref:'', dueDate:'', hasFAI:false, hasMatCert:false, lineNum:'', docNo:'' });
+  addRowToTable(null, parsedNotes.length - 1);
+  recount();
+  const rows = document.getElementById('tbody').children;
+  const newRow = rows[rows.length - 1];
+  newRow.querySelector('input[type="number"]').focus();
+  selectRow(newRow);
+}
+
+function recount() {
+  let n = 0;
+  for (const r of document.getElementById('tbody').children) {
+    const q = parseInt(r.querySelector('input[type="number"]').value) || 0;
+    const single = r.querySelector('.row-check').checked;
+    n += single ? 1 : q;
+  }
+  document.getElementById('nLabels').textContent = n;
+}
+
+/* ─── Phase 1: Live label preview ─── */
+let selectedRowEl = null;
+
+function selectRow(tr) {
+  if (selectedRowEl) selectedRowEl.classList.remove('row-selected');
+  selectedRowEl = tr;
+  if (tr) tr.classList.add('row-selected');
+  updatePreview();
+}
+
+function updatePreview() {
+  const panel = document.getElementById('labelPreview');
+  if (!panel) return;
+  if (!selectedRowEl) {
+    panel.innerHTML = '<div class="lp-empty">Select a row<br>to preview its label</div>';
+    return;
+  }
+  const qty     = parseInt(selectedRowEl.querySelector('input[type="number"]').value) || 1;
+  const single  = selectedRowEl.querySelector('.row-check').checked;
+  const lineNum = selectedRowEl.querySelector('.line-input').value.trim();
+  const desc    = selectedRowEl.querySelector('.desc-input').value.trim();
+  const notes   = selectedRowEl.querySelector('.notes-textarea').value.trim();
+
+  // Parse description segments
+  let descName = desc || '\u2014', descPartId = '', descDrawing = '';
+  if (descName.includes('|')) {
+    const segs = descName.split('|').map(s => s.trim());
+    descName = segs[0] || descName;
+    for (let si = 1; si < segs.length; si++) {
+      if (/^[A-Z]\d{3}-\d{4,5}$/.test(segs[si])) descDrawing = segs[si];
+      else if (/^\d{7,10}$/.test(segs[si])) descPartId = segs[si];
+    }
+  }
+
+  // Parse notes — only project ref needed on label now
+  let ref = '';
+  for (const nl of notes.split('\n').map(s => s.trim()).filter(Boolean)) {
+    if (/^PROJECT\s/i.test(nl))  { ref = nl.replace(/^PROJECT\s+/i,''); continue; }
+    if (/^LINE#/i.test(nl))      { nl.split('|').forEach(p => { if (/^PROJECT\s/i.test(p.trim())) ref = p.trim().replace(/^PROJECT\s+/i,''); }); }
+  }
+
+  // Resize preview box proportionally for label size
+  const lSize = document.getElementById('lSize').value;
+  const [lW, lH] = lSize.split('x').map(Number);
+  panel.style.height = Math.round(160 * lH / 50) + 'px';
+  const sizeTag = document.getElementById('previewSizeTag');
+  if (sizeTag) sizeTag.textContent = lW + '\u00d7' + lH + '\u00a0mm';
+
+  const infoBits = [];
+  if (info.po)   infoBits.push('PO\u00a0' + info.po);
+  if (lineNum)   infoBits.push('Line\u00a0#' + lineNum);
+  if (ref)       infoBits.push(ref);
+  const labelStr = single ? 'Qty:\u00a0' + qty : '1\u00a0of\u00a0' + qty;
+
+  // ── Build new label layout HTML ─────────────────────────────────
+  // Header: ACADEMY left, DEL# right
+  let html = `<div class="lp-header"><span>ACADEMY SHEETMETAL</span>`;
+  if (info.delivery) html += `<span class="lp-del">DEL\u00a0#${h(info.delivery)}</span>`;
+  html += `</div>`;
+
+  // Thick header rule
+  html += '<hr class="lp-rule lp-rule-thick">';
+
+  // Body: description (left) + QR placeholder + counter (right)
+  html += '<div class="lp-body">';
+  html += `<div class="lp-body-left"><div class="lp-desc">${h(descName)}</div></div>`;
+  html += `<div class="lp-body-right"><div class="lp-qr-box">QR</div><div class="lp-counter">${h(labelStr)}</div></div>`;
+  html += '</div>';
+
+  // Drawing | Part ID
+  if (descDrawing || descPartId)
+    html += `<div class="lp-ids">${h([descDrawing, descPartId].filter(Boolean).join(' | '))}</div>`;
+
+  // PO | Line | Ref
+  if (infoBits.length)
+    html += `<div class="lp-info">${h(infoBits.join(' | '))}</div>`;
+
+  // Thick footer rule + customer
+  html += '<hr class="lp-footer-rule">';
+  if (info.customer) html += `<div class="lp-footer-cust">${h(info.customer)}</div>`;
+
+  panel.innerHTML = html;
+}
+
+/* ─── Notes Popup ─── */
+let activeNotesRow = null;
+
+function openNotesPopup(tr) {
+  activeNotesRow = tr;
+  const rowIdx = parseInt(tr.dataset.rowIdx) || 0;
+  const data = parsedNotes[rowIdx] || {};
+
+  // Build snippets from parsed data
+  const snippets = [];
+
+  if (data.dueDate) {
+    snippets.push({ title:'Due Date', preview:'Due ' + data.dueDate, text:'Due ' + data.dueDate });
+  }
+  if (data.ref) {
+    snippets.push({ title:'Project Reference', preview:'PROJECT ' + data.ref, text:'PROJECT ' + data.ref });
+  }
+  if (data.paintSpec) {
+    snippets.push({ title:'Painting Specifications', preview: data.paintSpec.length > 80 ? data.paintSpec.substring(0,80)+'...' : data.paintSpec, text:'Painting Required;\n' + data.paintSpec });
+  }
+  if (data.hasFAI) {
+    snippets.push({ title:'FAI Required', preview:'FAI to be completed by vendor', text:'FAI to be completed' });
+  }
+  if (data.hasMatCert) {
+    snippets.push({ title:'Material Certificates', preview:'Material certificates required', text:'Material certificates required' });
+  }
+
+  if (!snippets.length) {
+    snippets.push({ title:'No notes detected', preview:'No additional data was found in the docket for this item', text:'' });
+  }
+
+  window._popupSnippets = snippets;
+
+  const list = document.getElementById('snippetList');
+  list.innerHTML = snippets.map((s, i) => `
+    <div class="snippet" data-idx="${i}">
+      <input type="checkbox" id="snip-${i}" ${s.text ? '' : 'disabled'}>
+      <div class="snippet-body">
+        <div class="snippet-title">${h(s.title)}</div>
+        <div class="snippet-preview">${h(s.preview)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Wire snippet clicks
+  list.querySelectorAll('.snippet').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox') return;
+      const cb = el.querySelector('input[type="checkbox"]');
+      if (!cb.disabled) cb.checked = !cb.checked;
+    });
+  });
+
+  document.getElementById('popupOverlay').classList.add('show');
+  document.getElementById('notesPopup').classList.add('show');
+}
+
+function closePopup() {
+  document.getElementById('popupOverlay').classList.remove('show');
+  document.getElementById('notesPopup').classList.remove('show');
+  activeNotesRow = null;
+}
+
+function insertSnippets() {
+  if (!activeNotesRow) return;
+  const snippets = window._popupSnippets || [];
+  const selected = [];
+  snippets.forEach((s, i) => {
+    const cb = document.getElementById('snip-' + i);
+    if (cb && cb.checked && s.text) selected.push(s.text);
+  });
+
+  if (selected.length) {
+    const textarea = activeNotesRow.querySelector('.notes-textarea');
+    const current = textarea.value.trim();
+    textarea.value = current ? current + '\n' + selected.join('\n') : selected.join('\n');
+
+    // Also update the display
+    const display = activeNotesRow.querySelector('.notes-display');
+    display.innerHTML = h(textarea.value).replace(/\n/g, '<br>');
+  }
+  closePopup();
+}
+
+// Wire popup buttons
+document.getElementById('popupClose').addEventListener('click', closePopup);
+document.getElementById('popupOverlay').addEventListener('click', closePopup);
+document.getElementById('insertBtn').addEventListener('click', insertSnippets);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePopup();
+});
+
+/* ─── Collect items for PDF ─── */
+function getItems() {
+  const out = [];
+  for (const r of document.getElementById('tbody').children) {
+    const qty = parseInt(r.querySelector('input[type="number"]').value) || 0;
+    if (qty < 1) continue;
+    out.push({
+      qty,
+      single: r.querySelector('.row-check').checked,
+      lineNum: r.querySelector('.line-input').value.trim(),
+      description: r.querySelector('.desc-input').value.trim(),
+      notes: r.querySelector('.notes-textarea').value.trim(),
+    });
+  }
+  return out;
+}
+
+function showErr(m) {
+  document.getElementById('out').style.display = 'block';
+  const el = document.getElementById('msg'); el.className = 'msg err'; el.textContent = m;
+}
+
+function resetAll() {
+  info = { po:'', delivery:'', customer:'' };
+  parsedNotes = [];
+  selectedRowEl = null;
+  document.getElementById('out').style.display = 'none';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('msg').className = 'msg';
+  const dbg = document.getElementById('dbg');
+  if (dbg) dbg.style.display = 'none';
+  const toggleAll = document.getElementById('toggleAll');
+  if (toggleAll) toggleAll.checked = false;
+}
+
+/* ─── Label layout engine (updated design) ─── */
+function renderLabel(doc, it, pageIndex, W, H) {
+  // Parse notes — only project ref appears on label; paint/due removed
+  const noteLines = it.notes.split('\n').map(s => s.trim()).filter(Boolean);
+  let ref = '';
+  for (const nl of noteLines) {
+    if (/^PROJECT\s/i.test(nl))  { ref = nl.replace(/^PROJECT\s+/i,''); continue; }
+    if (/^LINE#/i.test(nl))      { nl.split('|').forEach(p => { if (/^PROJECT\s/i.test(p.trim())) ref = p.trim().replace(/^PROJECT\s+/i,''); }); }
+  }
+
+  // Parse description segments (DESC | DRAWING | PARTID)
+  let descName = it.description || '\u2014', descPartId = '', descDrawing = '';
+  if (descName.includes('|')) {
+    const segs = descName.split('|').map(s => s.trim());
+    descName = segs[0] || descName;
+    for (let si = 1; si < segs.length; si++) {
+      if (/^[A-Z]\d{3}-\d{4,5}$/.test(segs[si])) descDrawing = segs[si];
+      else if (/^\d{7,10}$/.test(segs[si])) descPartId = segs[si];
+    }
+  }
+
+  const infoBits = [];
+  if (info.po)    infoBits.push('PO ' + info.po);   // no colon
+  if (it.lineNum) infoBits.push('Line #' + it.lineNum);
+  if (ref)        infoBits.push(ref);
+
+  const m     = 3;
+  const PT    = 0.3528;            // 1 pt in mm
+  const QR_MM = 12;                // QR code size
+  const qrX   = W - m - QR_MM;
+  const descW = qrX - m - 1;      // description text width (leaving gap before QR)
+
+  // Natural font sizes per spec
+  const FS = { hdr: 10.5, desc: 19, ctr: 18, id: 12, foot: 10.5 };
+
+  // Measure at natural sizes to get scale factor
+  doc.setFont('helvetica','bold'); doc.setFontSize(FS.desc);
+  const descLines0  = doc.splitTextToSize(descName, descW).slice(0, 2);
+  const descLH0     = FS.desc * PT * 1.28;
+  const ctrLH0      = FS.ctr  * PT * 1.28;
+  const idLH0       = FS.id   * PT * 1.28;
+  const hdrLH       = FS.hdr  * PT * 1.4;
+  const footLH      = FS.foot * PT * 1.4;
+
+  const hasIds  = !!(descDrawing || descPartId);
+  const hasInfo = infoBits.length > 0;
+  const idCount = (hasIds ? 1 : 0) + (hasInfo ? 1 : 0);
+
+  // Body block = max(description height, QR + counter height)
+  const bodyBlock0 = Math.max(descLines0.length * descLH0, QR_MM + ctrLH0);
+  const hdrZone    = hdrLH + 0.5 + 1.8;   // header line + gap + rule + padding
+  const footZone   = footLH + 2.5;         // rule + gap + customer
+  const avail      = H - m * 2 - hdrZone - footZone;
+  const need       = bodyBlock0 + 1 + idCount * idLH0;
+  const sf         = need > avail ? avail / need : 1;
+
+  // Scaled (clamped) font sizes
+  const fDesc = Math.max(9,  FS.desc * sf);
+  const fCtr  = Math.max(9,  FS.ctr  * sf);
+  const fId   = Math.max(7,  FS.id   * sf);
+  const descLH = fDesc * PT * 1.28;
+  const ctrLH  = fCtr  * PT * 1.28;
+  const idLH   = fId   * PT * 1.28;
+
+  let y = m;
+
+  // ── HEADER: ACADEMY SHEETMETAL (left) · DEL# (right, grey) ─────
+  doc.setFont('helvetica','bold'); doc.setFontSize(FS.hdr); doc.setTextColor(25, 25, 25);
+  doc.text('ACADEMY SHEETMETAL', m, y + hdrLH * 0.78);
+  if (info.delivery) {
+    doc.setTextColor(110, 110, 110);
+    doc.text('DEL #' + info.delivery, W - m, y + hdrLH * 0.78, { align: 'right' });
+  }
+  doc.setTextColor(0, 0, 0);
+  y += hdrLH + 0.5;
+
+  // ── THICK HEADER RULE ──────────────────────────────────────────
+  doc.setDrawColor(50, 50, 50); doc.setLineWidth(0.55);
+  doc.line(m, y, W - m, y);
+  y += 1.8;
+  const bodyTop = y;
+
+  // ── DESCRIPTION (left, up to 2 lines) ─────────────────────────
+  doc.setFont('helvetica','bold'); doc.setFontSize(fDesc); doc.setTextColor(0, 0, 0);
+  const descLines = doc.splitTextToSize(descName, descW).slice(0, 2);
+  doc.text(descLines, m, y + descLH * 0.82);
+
+  // ── QR CODE (top-right of body) ────────────────────────────────
+  if (typeof qrcode !== 'undefined' && info.delivery) {
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData('https://app.factory.app/workorders/' + info.delivery);
+      qr.make();
+      doc.addImage(qr.createDataURL(2, 0), 'PNG', qrX, bodyTop, QR_MM, QR_MM);
+    } catch (e) { console.warn('QR failed:', e); }
+  }
+
+  // ── COUNTER: below QR, right-aligned, same weight as description
+  doc.setFont('helvetica','bold'); doc.setFontSize(fCtr); doc.setTextColor(0, 0, 0);
+  const labelStr = it.single ? 'Qty: ' + it.qty : (pageIndex + 1) + ' of ' + it.qty;
+  doc.text(labelStr, W - m, bodyTop + QR_MM + ctrLH * 0.82, { align: 'right' });
+
+  // Advance y past the taller of (description) or (QR + counter)
+  y = bodyTop + Math.max(descLines.length * descLH, QR_MM + ctrLH) + 1;
+
+  // ── DRAWING | PART ID (14pt bold, same line) ───────────────────
+  if (hasIds) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(fId); doc.setTextColor(0, 0, 0);
+    doc.text([descDrawing, descPartId].filter(Boolean).join(' | '), m, y + idLH * 0.78);
+    y += idLH;
+  }
+
+  // ── PO | LINE | REF (14pt bold, no colon after PO) ────────────
+  if (hasInfo) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(fId); doc.setTextColor(0, 0, 0);
+    doc.text(infoBits.join(' | '), m, y + idLH * 0.78);
+    y += idLH;
+  }
+
+  // ── THICK FOOTER RULE ──────────────────────────────────────────
+  const footRuleY = H - m - footLH - 1.2;
+  doc.setDrawColor(50, 50, 50); doc.setLineWidth(0.55);
+  doc.line(m, footRuleY, W - m, footRuleY);
+
+  // ── CUSTOMER (footer, left-aligned) ────────────────────────────
+  if (info.customer) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(FS.foot); doc.setTextColor(25, 25, 25);
+    doc.text(info.customer, m, H - m + 0.3);
+    doc.setTextColor(0, 0, 0);
+  }
+
+  // ── BORDER ─────────────────────────────────────────────────────
+  doc.setDrawColor(190, 190, 190); doc.setLineWidth(0.2);
+  doc.rect(1, 1, W - 2, H - 2);
+}
+
+/* ─── PDF Label Generation ─── */
+function makePDF() {
+  const btn = document.getElementById('goBtn'), msg = document.getElementById('msg');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  msg.className = 'msg'; msg.textContent = '';
+  try {
+    const items = getItems();
+    if (!items.length) { msg.className='msg err'; msg.textContent='No items.'; btn.disabled=false; btn.textContent='Generate Label PDF'; return; }
+    const { jsPDF } = window.jspdf;
+    const [W, H] = document.getElementById('lSize').value.split('x').map(Number);
+    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:[W, H] });
+    let first = true;
+    for (const it of items) {
+      const count = it.single ? 1 : it.qty;
+      for (let i = 0; i < count; i++) {
+        if (!first) doc.addPage([W, H], 'landscape');
+        first = false;
+        renderLabel(doc, it, i, W, H);
+      }
+    }
+    const fn = 'labels_DEL' + (info.delivery||'X') + '_PO' + (info.po||'X') + '.pdf';
+    doc.save(fn);
+    msg.className = 'msg ok';
+    msg.innerHTML = '\u2713 Generated <strong>' + fn + '</strong>';
+  } catch(err) {
+    msg.className = 'msg err'; msg.textContent = 'Error: ' + err.message;
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = 'Generate Label PDF';
+}
+
+/* ─── Wire up buttons ─── */
+document.getElementById('addRowBtn').addEventListener('click', addRow);
+document.getElementById('goBtn').addEventListener('click', makePDF);
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+document.getElementById('lSize').addEventListener('change', updatePreview);
+document.getElementById('toggleAll').addEventListener('change', (e) => {
+  document.querySelectorAll('#tbody .row-check').forEach(cb => { cb.checked = e.target.checked; });
+  recount();
+});
+
+/* ─── Signal ready to parent ─── */
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'sandboxReady' }, '*');
+}
+</script>
+</body>
+</html>

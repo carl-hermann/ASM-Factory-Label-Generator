@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASM Label Generator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&display=swap">
+<script src="lib/pdf.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="lib/qrcode.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --primary:#003a5d;--accent:#4169e1;
+    --success:#10b981;--error:#ef4444;
+    --bg:#faf9f5;--surface:#ffffff;--border:#e5e9f2;
+    --text:rgb(39,52,68);--dim:rgb(132,146,166);
+    --sans:'Open Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  body{font-family:var(--sans);font-weight:400;background:var(--bg);min-height:100vh;padding:1.5rem;color:var(--text)}
+  .container{max-width:1500px;margin:0 auto}
+
+  /* Header */
+  .header{text-align:left;margin-bottom:1.25rem}
+  .header h1{font-size:1.4rem;font-weight:500;color:var(--text);margin-bottom:0}
+  .header p{color:var(--dim);font-size:.85rem;font-weight:300}
+
+  /* Card */
+  .card{background:var(--surface);border-radius:5px;padding:1.25rem;box-shadow:rgb(229,233,242) 0px 14px 14px -14px,rgba(39,52,68,0.2) 0px 14px 14px -14px;margin-bottom:1rem}
+
+  /* Toggle-all in header */
+  .th-toggle{display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:500;white-space:nowrap}
+  .th-toggle input{accent-color:var(--accent);cursor:pointer;width:13px;height:13px}
+
+  /* Success bar */
+  .success-bar{background:#ecfdf5;border-left:4px solid var(--success);padding:8px 14px;border-radius:0 4px 4px 0;margin-bottom:1rem;font-size:.85rem;color:#065f46;font-weight:400}
+
+  /* Docket header */
+  .docket-hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:.75rem}
+  .docket-hdr h3{font-size:1rem;font-weight:500;color:var(--text)}
+  .pills{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{background:#eef4fb;color:var(--primary);font-family:var(--sans);font-size:.7rem;font-weight:500;padding:3px 9px;border-radius:4px}
+
+  /* Table */
+  .table-wrap{overflow-x:auto;margin:0 -.25rem;padding:0 .25rem}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:850px}
+  thead{background:#f4f6f9}
+  th{text-align:left;padding:8px 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;color:var(--dim);font-weight:500;border-bottom:1px solid var(--border)}
+  td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+  tr:hover td{background:#f8fafe}
+  .c-qty{width:65px}
+  .c-desc{min-width:220px}
+  .c-ids{width:180px}
+  .c-ref{min-width:200px}
+  .c-notes{min-width:180px}
+  .c-x{width:32px;text-align:center}
+  .c-profile{width:50px;text-align:center}
+  table:not(.has-profiles) .c-profile{display:none}
+
+  /* Grouped sub-fields within a cell */
+  .cell-group{display:flex;flex-direction:column;gap:3px}
+  .cell-row{display:flex;align-items:center;gap:4px}
+  .cell-lbl{font-size:.6rem;font-weight:500;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;min-width:28px;flex-shrink:0}
+  .cell-input{font-family:var(--sans);font-size:.8rem;padding:4px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text)}
+  .cell-input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(65,105,225,.12)}
+  .cell-input::placeholder{color:rgba(132,146,166,.5)}
+  .qty-wrap{display:flex;align-items:center;gap:4px}
+  .qty-wrap label{font-size:.6rem;color:var(--dim);white-space:nowrap;cursor:pointer;user-select:none}
+
+  /* Editable cells */
+  table input[type="number"]{font-family:var(--sans);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);text-align:center}
+  table input[type="number"]:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(65,105,225,.12)}
+  .row-check{width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+  .desc-input{font-family:var(--sans);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);resize:none;overflow:hidden;field-sizing:content;min-height:28px;line-height:1.5;display:block}
+  .desc-input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(65,105,225,.12)}
+
+  /* Notes cell */
+  .notes-textarea{font-family:var(--sans);font-size:.82rem;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent;width:100%;color:var(--text);resize:none;overflow:hidden;field-sizing:content;min-height:28px;line-height:1.5;transition:.15s}
+  .notes-textarea:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 2px rgba(65,105,225,.12)}
+  .notes-textarea::placeholder{color:rgba(132,146,166,.5)}
+  .notes-actions{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;opacity:0;height:0;overflow:hidden;transition:.15s}
+  td:focus-within .notes-actions{opacity:1;height:auto;overflow:visible}
+  .notes-actions button{font-family:var(--sans);font-size:.68rem;padding:3px 8px;border-radius:4px;cursor:pointer;font-weight:500;border:none;transition:.15s}
+  .btn-add-notes{background:#eef4fb;color:var(--primary);border:1px solid var(--accent) !important}
+  .btn-add-notes:hover{background:var(--accent);color:#fff}
+  .btn-reset-notes{background:#f8fafc;color:var(--dim);border:1px solid var(--border) !important}
+  .btn-reset-notes:hover{background:var(--border);color:var(--text)}
+
+  /* Delete button */
+  .xbtn{background:none;border:none;cursor:pointer;padding:4px;color:var(--dim);border-radius:4px;transition:.15s;display:inline-flex;align-items:center;justify-content:center}
+  .xbtn:hover{background:#fef2f2;color:var(--error)}
+  .xbtn svg{width:14px;height:14px}
+
+  /* Add row */
+  .add-bar{padding-top:8px}
+  .add-btn{background:none;border:1px dashed var(--border);padding:4px 12px;font-family:var(--sans);font-size:.8rem;font-weight:400;border-radius:4px;cursor:pointer;color:var(--dim);transition:.15s}
+  .add-btn:hover{border-color:var(--accent);color:var(--accent);background:#f0f7ff}
+
+  /* Notes Popup Modal */
+  .notes-popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998}
+  .notes-popup-overlay.show{display:block}
+  .notes-popup{display:none;position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:1.25rem;border-radius:5px;box-shadow:rgb(229,233,242) 0px 14px 30px,rgba(39,52,68,0.25) 0px 8px 20px;width:420px;max-height:70vh;overflow-y:auto}
+  .notes-popup.show{display:block}
+  .notes-popup-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:2px solid var(--border)}
+  .notes-popup-hdr h4{color:var(--primary);font-size:1rem}
+  .popup-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--dim);padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+  .popup-close:hover{background:var(--bg);color:var(--text)}
+  .snippet{display:flex;align-items:flex-start;padding:.6rem;margin-bottom:.4rem;border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:.15s}
+  .snippet:hover{background:var(--bg);border-color:var(--accent)}
+  .snippet input[type="checkbox"]{margin-right:.75rem;margin-top:.2rem;cursor:pointer;accent-color:var(--accent)}
+  .snippet-body{flex:1}
+  .snippet-title{font-weight:600;color:var(--primary);margin-bottom:.15rem;font-size:.88rem}
+  .snippet-preview{font-size:.8rem;color:var(--dim);white-space:pre-wrap}
+  .popup-actions{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)}
+  .btn-insert{width:100%;background:var(--primary);color:#fff;border:none;padding:8px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);box-shadow:rgba(0,0,0,.15) 0px 2px 8px}
+  .btn-insert:hover{background:#004a73}
+
+  /* Settings card */
+  .summary{padding:10px 14px;background:#f4f6f9;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:400;color:var(--text)}
+  .summary .n{font-family:var(--sans);font-size:1.2rem;font-weight:600;color:var(--primary)}
+  .settings-row{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-top:.75rem}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:.7rem;font-weight:500;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}
+  .field select{font-family:var(--sans);font-size:.85rem;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;color:var(--text)}
+  .acts{display:flex;align-items:center;gap:10px;margin-top:1rem}
+  .btn{padding:6px 14px;font-family:var(--sans);font-size:13px;font-weight:500;border-radius:4px;cursor:pointer;transition:.15s;border:none;display:inline-flex;align-items:center;gap:6px}
+  .btn-primary{background:var(--primary);color:#fff;box-shadow:rgba(0,0,0,.15) 0px 2px 8px}
+  .btn-primary:hover{background:#004a73;box-shadow:rgba(0,0,0,.2) 0px 3px 10px}
+  .btn-primary:disabled{background:var(--border);color:var(--dim);cursor:not-allowed;box-shadow:none}
+  .btn-secondary{background:none;border:1px solid var(--border);color:var(--dim)}
+  .btn-secondary:hover{border-color:var(--dim);color:var(--text)}
+  .msg{margin-top:12px;font-size:.85rem;color:var(--dim)}
+  .msg.err{color:var(--error);background:#fef2f2;padding:10px 14px;border-radius:8px;border:1px solid #fecaca}
+  .msg.ok{color:#065f46;background:#ecfdf5;padding:10px 14px;border-radius:8px;border:1px solid #a7f3d0}
+
+  /* Debug (hidden) */
+  .dbg{display:none}
+
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .card{animation:fadeIn .3s ease-out}
+
+  /* ── Phase 1: Label preview layout ── */
+  .content-with-preview{display:grid;grid-template-columns:1fr 400px;gap:1.25rem;align-items:start;margin-bottom:1.25rem}
+  .content-with-preview > .card{margin-bottom:0}
+  @media(max-width:1100px){.content-with-preview{grid-template-columns:1fr}}
+
+  .preview-panel{background:var(--surface);border-radius:5px;padding:1rem;box-shadow:rgb(229,233,242) 0px 14px 14px -14px,rgba(39,52,68,0.2) 0px 14px 14px -14px;position:sticky;top:1.5rem}
+  .preview-panel-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+  .preview-panel-hdr h4{font-size:.8rem;font-weight:500;letter-spacing:0;color:var(--text);margin:0;text-transform:none}
+  .preview-size-tag{font-family:var(--sans);font-size:.65rem;color:var(--dim);background:#f4f6f9;padding:2px 7px;border-radius:3px}
+  .label-wrap{background:#e8edf2;border-radius:6px;padding:10px;display:flex;align-items:center;justify-content:center;min-height:192px}
+  .label-preview{width:100%;height:180px;background:#fff;border:none;border-radius:2px;padding:0;font-family:Arial,Helvetica,sans-serif;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.15);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;transition:height .25s ease}
+  .lp-header{display:flex;justify-content:space-between;font-size:8.5px;font-weight:700;color:#3a3a3a;margin-bottom:3px;flex-shrink:0;line-height:1.2}
+  .lp-rule{border:none;border-top:1px solid #888;margin:0 0 4px;flex-shrink:0}
+  .lp-desc{font-size:15px;font-weight:700;line-height:1.18;color:#000;margin-bottom:3px;white-space:pre-line;word-break:break-word}
+  .lp-ids{font-size:13px;font-weight:700;color:#000;margin-bottom:3px;word-break:break-word}
+  .lp-info{font-size:10px;color:#222;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-paint{font-size:9.5px;font-weight:700;color:#000;margin-bottom:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .lp-due{font-size:13px;font-weight:700;color:#000;margin-top:auto;padding-bottom:2px}
+  .lp-footer{display:flex;justify-content:space-between;font-size:8.5px;font-weight:700;color:#444;margin-top:auto;padding-top:2px;border-top:1px solid #ddd;flex-shrink:0;line-height:1.2}
+  .lp-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:.78rem;text-align:center;font-family:var(--sans);line-height:1.5}
+  .preview-hint{font-size:.7rem;color:var(--dim);text-align:center;margin-top:.6rem;margin-bottom:0}
+
+  /* Updated label design — preview classes */
+  .lp-del{color:#000;font-size:8px;font-weight:700}
+  .lp-rule-thick{border-top-width:1.5px !important;border-top-color:#404040 !important;margin:3px 0 !important}
+  .lp-body{display:flex;align-items:flex-start;gap:3px;margin-bottom:2px;min-height:0}
+  .lp-body-left{flex:1;min-width:0}
+  .lp-body-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
+  .lp-counter{font-size:15px;font-weight:700;color:#000;text-align:right;line-height:1.2;margin-top:2px}
+  .lp-bottom{display:flex;align-items:flex-end;margin-top:auto;gap:4px}
+  .lp-bottom-left{flex:1;min-width:0}
+  .lp-bottom-right{flex-shrink:0}
+  .lp-qr-box{width:42px;height:42px;background:#f0f4f8;border:1px dashed #b0c0d0;border-radius:1px;display:flex;align-items:center;justify-content:center;font-size:6px;color:#94a3b8;letter-spacing:.3px;font-family:var(--mono)}
+  .lp-footer-rule{border:none;border-top:1.5px solid #404040;margin-bottom:3px;flex-shrink:0}
+  .lp-footer-cust{font-size:8.5px;font-weight:700;color:#222;flex-shrink:0}
+  .lp-notes{font-size:8px;color:#555;margin-bottom:2px;line-height:1.3;word-break:break-word}
+
+  /* Row selection highlight */
+  tr.row-selected td{background:#f0f5ff !important;box-shadow:inset 3px 0 0 var(--accent)}
+  tr.row-selected:hover td{background:#e8f0fb !important}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>ASM Label Generator</h1>
+  </div>
+  <input type="file" id="fileIn" accept="application/pdf" style="display:none">
+
+  <div id="out" style="display:none">
+    <div class="success-bar" id="successBar"></div>
+
+    <div class="content-with-preview">
+    <div class="card">
+      <div class="docket-hdr">
+        <h3 id="title">Delivery Docket</h3>
+        <div class="pills">
+          <span class="pill" id="pPO"></span><span class="pill" id="pDel"></span><span class="pill" id="pCust"></span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+      <table><thead><tr>
+        <th class="c-qty">Qty</th>
+        <th style="width:62px"><label class="th-toggle" title="Print one label showing total qty instead of individual labels"><input type="checkbox" id="toggleAll" title="Toggle all to single label"> 1 Label</label></th>
+        <th class="c-profile"><label class="th-toggle"><input type="checkbox" id="toggleProfiles" checked title="Toggle profile drawings on labels"> Profile</label></th>
+        <th class="c-desc">Description</th>
+        <th class="c-ids">Drawing / Part No</th>
+        <th class="c-ref">PO / Line / Project</th>
+        <th class="c-notes">Notes</th>
+        <th class="c-x"></th>
+      </tr></thead><tbody id="tbody"></tbody></table>
+      </div>
+      <div class="add-bar"><button class="add-btn" id="addRowBtn">+ Add row</button></div>
+    </div>
+
+    <div class="preview-panel" id="previewSidebar">
+      <div class="preview-panel-hdr">
+        <h4>Label Preview</h4>
+        <span class="preview-size-tag" id="previewSizeTag">100 × 50 mm</span>
+      </div>
+      <div class="label-wrap">
+        <div class="label-preview" id="labelPreview">
+          <div class="lp-empty">Select a row<br>to preview its label</div>
+        </div>
+      </div>
+      <p class="preview-hint" id="previewHint">Click any row to preview &bull; Edits update live</p>
+    </div>
+    </div><!-- /.content-with-preview -->
+
+    <div class="card">
+      <div class="summary"><span class="n" id="nLabels">0</span><span>labels will be generated</span></div>
+      <div class="settings-row">
+        <div class="field"><label>Label size</label>
+          <select id="lSize">
+            <option value="100x50">100 &times; 50 mm</option>
+            <option value="100x60">100 &times; 60 mm</option>
+            <option value="100x75">100 &times; 75 mm</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;min-width:240px"><label>Factory link (for QR code)</label>
+          <input type="text" id="factoryLink" placeholder="Paste Factory.app link here..." style="font-family:var(--sans);font-size:.82rem;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;color:var(--text);width:100%">
+        </div>
+        <div class="field"><label>QR Code</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer;user-select:none"><input type="checkbox" id="qrToggle" checked style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer"> Show on labels</label>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-primary" id="goBtn">Generate Label PDF</button>
+        <button class="btn btn-primary" id="printBtn" style="background:#4169e1">Print Labels</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <pre id="dbg" style="display:none"></pre>
+  </div>
+</div>
+
+<!-- Notes popup -->
+<div class="notes-popup-overlay" id="popupOverlay"></div>
+<div class="notes-popup" id="notesPopup">
+  <div class="notes-popup-hdr">
+    <h4>Add from Notes</h4>
+    <button class="popup-close" id="popupClose">&times;</button>
+  </div>
+  <div id="snippetList"></div>
+  <div class="popup-actions">
+    <button class="btn-insert" id="insertBtn">Insert Selected</button>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+
+let info = { po:'', delivery:'', customer:'', orderType:'generic', contact:{}, notes:'', status:'', requiredDate:'', createdDate:'', qboNumber:'' };
+let parsedNotes = []; // Store raw parsed notes per row for "Add from Notes"
+const profileSvgs = new Map(); // rowIndex -> SVG markup string for flashing profiles
+
+/* ─── File handling ─── */
+const fileIn = document.getElementById('fileIn');
+
+/* ─── Auto-load from parent page via postMessage ─── */
+window.addEventListener('message', (event) => {
+  if (!event.data) return;
+
+  // PDF data from content.js (via bridge)
+  if (event.data.type === 'loadPdf' && event.data.pdfBase64) {
+    try {
+      const binary = atob(event.data.pdfBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      loadFromBuffer(bytes.buffer);
+    } catch (err) {
+      console.error('Failed to load PDF from parent:', err);
+      showErr('Could not load PDF data: ' + err.message);
+    }
+  }
+
+  // Pre-parsed data from factory-scraper.js (via bridge)
+  if (event.data.type === 'loadFactory' && event.data.factoryJson) {
+    try {
+      const data = JSON.parse(event.data.factoryJson);
+
+      // Detect format: new generic format has header/drawings/products,
+      // old format has orderNumber/items at top level
+      const isNewFormat = data.header !== undefined;
+
+      if (isNewFormat) {
+        // --- New generic format ---
+        const hdr = data.header;
+
+        // Populate global info
+        info.po       = hdr.po || '';
+        info.delivery = hdr.orderNumber || '';
+        info.customer = hdr.customerCompany || hdr.customer || '';
+        info.qboNumber = hdr.qboNumber || '';
+        info.orderType = data.orderType || 'generic';
+        info.contact  = hdr.contact || {};
+        info.notes    = hdr.notes || '';
+        info.status   = hdr.status || '';
+        info.requiredDate = hdr.requiredDate || '';
+        info.createdDate  = hdr.createdDate || '';
+
+        // Set factory link for QR codes
+        const linkEl = document.getElementById('factoryLink');
+        if (linkEl && data.factoryLink) linkEl.value = data.factoryLink;
+
+        // Convert drawings and products to unified item format
+        parsedNotes = [];
+        profileSvgs.clear();
+        const items = [];
+
+        // Drawings -> items (flashing orders)
+        (data.drawings || []).forEach((dwg, idx) => {
+          const materialStr = [dwg.thickness, dwg.material].filter(Boolean).join(' ');
+          const girthStr = dwg.girth ? 'G' + dwg.girth : '';
+          const lengthStr = dwg.lengths || '';
+
+          // Build description: material details only (item index shown separately)
+          const detailParts = [materialStr, girthStr, lengthStr].filter(Boolean);
+          const desc = detailParts.join(' | ');
+
+          const rowIdx = items.length;
+          parsedNotes.push({
+            paintSpec: '', ref: '', dueDate: '',
+            hasFAI: false, hasMatCert: false, lineNum: '', docNo: '',
+            // Extra flashing data for notes popup
+            flashingDetail: detailParts.join(' | '),
+            flashingDims: (dwg.dimensions || []).join(', '),
+            flashingPrice: dwg.totalPrice || '',
+          });
+
+          // Store profile SVG for this row
+          if (dwg.svgMarkup) {
+            profileSvgs.set(rowIdx, dwg.svgMarkup);
+          }
+
+          items.push({
+            qty:         dwg.qty || 1,
+            description: desc,
+            drawing:     '',
+            partId:      '',
+            po:          hdr.po || '',
+            lineNum:     '',
+            ref:         '',
+            notes:       '',
+          });
+        });
+
+        // UGL pre-pass: extract shared metadata from orphan rows (no qty element)
+        // These are order-level notes rows (e.g. "R-0219-04\nPainting required...")
+        // that apply to all products below them
+        let sharedRef = '', sharedPaintSpec = '', sharedNotes = '';
+        if (data.orderType === 'ugl') {
+          (data.products || []).forEach(prod => {
+            if (prod.hasQty) return; // real product row, skip
+            const txt = (prod.name || '') + '\n' + (prod.description || '');
+            const refM = txt.match(/\b(R-\d+(?:-\d+)*)\b/i);
+            if (refM && !sharedRef) sharedRef = refM[1];
+            const paintM = txt.match(/Painting required[.\s]+(.+)/is);
+            if (paintM && !sharedPaintSpec) sharedPaintSpec = paintM[1].trim().replace(/\n/g, '; ');
+            // Collect everything as shared notes
+            if (!sharedNotes) sharedNotes = txt.trim();
+          });
+        }
+
+        // Products -> items
+        (data.products || []).forEach((prod, idx) => {
+          // Skip orphan metadata rows (no qty element) for UGL orders
+          if (data.orderType === 'ugl' && prod.hasQty === false) return;
+
+          let desc = prod.name || '';
+          let drawing = '', partId = '', lineNum = '', ref = '';
+          let notes = prod.description || '';
+
+          // UGL product name parsing - four formats:
+          // Format A: "DOOR ASSEMBLY | 1000318773 | C67640A01"
+          //   -> pipe-separated, first segment = description, LINE#/PROJECT in description field
+          // Format B: "LINE #90 R-0258 | 1000516111 | A710-06482"
+          //   -> pipe-separated, first segment = LINE#/PROJECT, description in description field
+          // Format C: "LINE #10\t\t1000318767\tC67634A01\tDOOR ASSEMBLY"
+          //   -> tab-separated, LINE# first, desc last, partId/drawing in middle
+          // Format D: multiline name with pipes on inner line:
+          //   "PROJECT R-0258\nLINE #20 | BRAKE RACK ASSY | 1000272212\nDoc No 106071A01"
+          //   -> isolate the pipe-delimited line, treat other lines as metadata
+          if (data.orderType === 'ugl' && desc.includes('|')) {
+            // If multiline, isolate the pipe-delimited line from metadata lines
+            const nameLines = desc.split('\n').map(l => l.trim()).filter(Boolean);
+            const pipeLineIdx = nameLines.findIndex(l => l.includes('|'));
+            const pipeLine = pipeLineIdx >= 0 ? nameLines[pipeLineIdx] : desc;
+            const metaLines = nameLines.filter((_, i) => i !== pipeLineIdx);
+
+            // Extract metadata from non-pipe lines (PROJECT ref, Doc No, etc.)
+            for (const ml of metaLines) {
+              if (!ref) { const m = ml.match(/\b(R-\d+(?:-\d+)*)\b/i); if (m) ref = m[1]; }
+              if (!drawing && /^Doc\s*No/i.test(ml)) {
+                const m = ml.match(/Doc\s*No\s+(\S+)/i); if (m) drawing = m[1];
+              }
+            }
+
+            const segments = pipeLine.split('|').map(s => s.trim());
+            const firstSeg = segments[0] || '';
+
+            // Detect Format B/D: first segment starts with LINE#
+            const isLineFirst = /^LINE\s*#/i.test(firstSeg);
+
+            if (isLineFirst) {
+              // Extract LINE# and project ref from the first segment
+              const lineM = firstSeg.match(/LINE\s*#\s*(\d+)/i);
+              if (lineM) lineNum = lineM[1];
+              if (!ref) { const refM = firstSeg.match(/\b(R-\d+(?:-\d+)*)\b/i); if (refM) ref = refM[1]; }
+
+              // For Format D (multiline): remaining pipe segments have desc + partId
+              // For Format B (single line): description is in the notes field
+              const hasDescInPipe = segments.length >= 2 && !/^\d{7,10}$/.test(segments[1]) && segments[1].length > 2;
+              if (hasDescInPipe && metaLines.length > 0) {
+                // Format D: description is the second pipe segment
+                desc = segments[1];
+              } else if (notes) {
+                // Format B: description field has the actual part description
+                const descLines = notes.split('\n').map(l => l.trim()).filter(Boolean);
+                desc = descLines[0] || firstSeg;
+                notes = descLines.slice(1).join('\n');
+              } else {
+                desc = firstSeg;
+              }
+            } else {
+              // Format A: first segment is the description
+              desc = firstSeg;
+            }
+
+            // Extract part ID and drawing from remaining segments (all formats)
+            for (let si = 1; si < segments.length; si++) {
+              const seg = segments[si];
+              if (/^\d{7,10}$/.test(seg)) partId = seg;
+              else if (seg.length > 2 && seg !== desc) { if (!drawing) drawing = seg; }
+            }
+
+          } else if (data.orderType === 'ugl' && desc.includes('\t')) {
+            // Format C: tab-separated — "LINE #10\t\t1000318767\tC67634A01\tDOOR ASSEMBLY"
+            const segments = desc.split('\t').map(s => s.trim()).filter(Boolean);
+            const descParts = [];
+
+            for (const seg of segments) {
+              if (/^LINE\s*#\s*\d+/i.test(seg)) {
+                const lineM = seg.match(/LINE\s*#\s*(\d+)/i);
+                if (lineM) lineNum = lineM[1];
+              } else if (/^\d{7,10}$/.test(seg)) {
+                partId = seg;
+              } else if (!drawing && /^[A-Z]?\d{3,}[A-Z]\d{2,}$/i.test(seg)) {
+                // Drawing patterns: C67634A01, 117076A01, A710-06482
+                drawing = seg;
+              } else if (!drawing && /^[A-Z]{1,4}\d*-\d+/i.test(seg)) {
+                drawing = seg;
+              } else {
+                // Everything else is description text
+                descParts.push(seg);
+              }
+            }
+
+            if (descParts.length) desc = descParts.join(' ');
+          }
+
+          // UGL description parsing (Format A): extract LINE#, PROJECT from description field
+          if (data.orderType === 'ugl' && !lineNum && notes) {
+            const lineM = notes.match(/LINE\s*#\s*(\d+)/i);
+            if (lineM) lineNum = lineM[1];
+          }
+          if (data.orderType === 'ugl' && !ref && notes) {
+            const refM = notes.match(/\b(R-\d+(?:-\d+)*)\b/i);
+            if (refM) ref = refM[1];
+          }
+
+          // Apply shared metadata from orphan rows if not already set
+          if (data.orderType === 'ugl') {
+            if (!ref && sharedRef) ref = sharedRef;
+          }
+
+          // Laser/fab: use attributes for drawing ref and operation
+          if (data.orderType === 'laserfab' || (prod.accountingCode && /LASER/i.test(prod.accountingCode))) {
+            if (prod.attributes && prod.attributes.length) {
+              prod.attributes.forEach(attr => {
+                // Attribute label like "(11403) THRESHOLD 4538-A-R-702-TH"
+                // contains drawing number in parens and part description
+                const drawingM = attr.label.match(/^\((\d+)\)\s*(.+)/);
+                if (drawingM) {
+                  if (!drawing) drawing = drawingM[1];     // "11403"
+                  if (!desc || desc === prod.name) {
+                    // Put material as first line, part name as second
+                    desc = prod.name + '\n' + drawingM[2].trim();
+                  }
+                }
+                // Attribute value like "CUT + FOLD" is the operation
+                if (attr.value && !notes) notes = attr.value;
+              });
+            }
+          }
+
+          // Generic: use attributes as additional info
+          if (prod.attributes && prod.attributes.length && data.orderType !== 'laserfab') {
+            const attrStr = prod.attributes.map(a => a.label + ': ' + a.value).join('\n');
+            notes = notes ? notes + '\n' + attrStr : attrStr;
+          }
+
+          // Extract paint spec and due date from notes or description
+          let paintSpec = '', dueDate = '';
+          if (notes) {
+            const paintM = notes.match(/Painting required[.\s]+(.+)/is);
+            if (paintM) paintSpec = paintM[1].trim().replace(/\n/g, '; ');
+            const dueM = notes.match(/(?:REQUIRED|DUE)\s+(\S+)/i);
+            if (dueM) dueDate = dueM[1];
+          }
+          // Format C: due date may be in the description field ("DUE 24/09")
+          if (!dueDate && prod.description) {
+            const dueM2 = prod.description.match(/(?:REQUIRED|DUE)\s+(\S+)/i);
+            if (dueM2) dueDate = dueM2[1];
+          }
+          // Apply shared paint spec from orphan metadata rows
+          if (!paintSpec && sharedPaintSpec) paintSpec = sharedPaintSpec;
+
+          parsedNotes.push({
+            paintSpec: paintSpec, ref: ref, dueDate: dueDate,
+            hasFAI: /FAI/i.test(notes) || /FAI/i.test(prod.description || ''),
+            hasMatCert: /Material\s+cert/i.test(notes) || /Material\s+cert/i.test(prod.description || ''),
+            lineNum: lineNum, docNo: '',
+            rawDescription: prod.description || '',
+            rawAttributes: prod.attributes || [],
+            accountingCode: prod.accountingCode || '',
+          });
+
+          items.push({
+            qty:         prod.qty || 1,
+            description: desc,
+            drawing:     drawing,
+            partId:      partId,
+            po:          hdr.po || '',
+            lineNum:     lineNum,
+            ref:         ref,
+            notes:       '',
+          });
+        });
+
+        show(items);
+
+      } else {
+        // --- Legacy format (old scraper) ---
+        info.po       = data.po || '';
+        info.delivery = data.delivery || data.orderNumber || '';
+        info.customer = data.customer || '';
+
+        const linkEl = document.getElementById('factoryLink');
+        if (linkEl && data.factoryLink) linkEl.value = data.factoryLink;
+
+        parsedNotes = [];
+        const items = data.items.map(it => {
+          parsedNotes.push({
+            paintSpec: '', ref: it.ref || '', dueDate: it.dueDate || '',
+            hasFAI: false, hasMatCert: false, lineNum: it.lineNum || '', docNo: ''
+          });
+          return {
+            qty:         it.qty || 1,
+            description: it.description || '',
+            drawing:     it.drawing || '',
+            partId:      it.partId || '',
+            po:          it.po || data.po || '',
+            lineNum:     it.lineNum || '',
+            ref:         it.ref || '',
+            notes:       '',
+          };
+        });
+
+        show(items);
+      }
+    } catch (err) {
+      console.error('Failed to load factory data:', err);
+    }
+  }
+});
+
+async function loadFromFile(file) { loadFromBuffer(await file.arrayBuffer()); }
+
+async function loadFromBuffer(ab) {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let text = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let prevY = null, buf = '';
+      for (const it of tc.items) {
+        const y = Math.round(it.transform[5]);
+        if (prevY !== null && Math.abs(y - prevY) > 3) { text += buf.trimEnd() + '\n'; buf = ''; }
+        buf += it.str + ' ';
+        prevY = y;
+      }
+      if (buf.trim()) text += buf.trimEnd() + '\n';
+      text += '===PAGE===\n';
+    }
+    document.getElementById('dbg').textContent = text;
+    parse(text);
+  } catch(err) {
+    showErr('Could not read PDF: ' + err.message);
+    console.error(err);
+  }
+}
+
+/* ─── Parser ─── */
+const SKIP = [
+  /DELIVERY\s*#/i, /Academy\s+Sheetmetal/i, /Pendlebury/i, /office@/i,
+  /27100479187/, /0427\s*152/, /^\s*Created\s*$/i, /^\s*Required\s*$/i,
+  /^\s*PO\s*$/i, /QBO\s+Order/i, /DELIVER\s+FOR/i, /PICK\s+UP\s+FOR/i,
+  /^\s*CONTACT\s*$/i, /^\s*UGL\s+LIMITED\s*$/i, /^\s*QTY\b.*DESCRIPTION/i,
+  /^\s*EACH\s*$/i, /^\s*TOTAL\s*$/i, /^\s*\d+\s+of\s+\d+\s*$/i,
+  /^\s*\d{2}\/\d{2}\/\d{4}\s*\(\w+\)\s*$/,
+  /^\s*Craig\s+White\s*$/i, /Broadmeadow/i, /Wales\s+Australia/i,
+  /^\s*ACCOUNTS\s*$/i, /^\s*1300\s+655\s+419\s*$/, /UGL\s+RS\s+#/i,
+  /^\s*Store\s+/i, /Cardiff\s+\d{4}/i,
+  /===PAGE===/, /^\s*\*\*.*\*\*\s*$/, /^\s*$/,
+];
+
+function parse(text) {
+  const poM = text.match(/\bPO\s+(\d{7,10})\b/) || text.match(/\b(4\d{9})\b/);
+  info.po = poM ? poM[1] : '';
+  const delM = text.match(/DELIVERY\s*#\s*(\d+)/i);
+  info.delivery = delM ? delM[1] : '';
+  info.customer = /UGL/i.test(text) ? 'UGL LIMITED' : '';
+
+  const rawLines = text.split('\n');
+  const content = rawLines.filter(l => !SKIP.some(p => p.test(l)));
+
+  const blocks = [];
+  let cur = null;
+  for (const line of content) {
+    const t = line.trim();
+    if (!t) continue;
+    const qm = t.match(/^(\d{1,3})\s{2,}(\S.*)/) || t.match(/^(\d{1,3})\s+([A-Z].*)/);
+    if (qm && parseInt(qm[1]) <= 500) {
+      // Reject false block starts (addresses, phone numbers, dates, etc.)
+      const rest = qm[2];
+      if (/\b(Road|Street|St|Ave|Rd|Drive|Lane|Hwy|Boulevard)\b/i.test(rest)) continue;
+      if (/\b(NSW|QLD|VIC|SA|WA|TAS|NT|ACT)\b/.test(rest)) continue;
+      if (/^\d{2}\/\d{2}\/\d{4}/.test(rest)) continue;
+      if (cur) blocks.push(cur);
+      cur = { qty: parseInt(qm[1]), lines: [rest] };
+    } else if (cur) {
+      cur.lines.push(t);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  const items = [];
+  parsedNotes = [];
+  for (const block of blocks) {
+    const item = parseBlock(block);
+    if (item) items.push(item);
+  }
+
+  if (!items.length) {
+    showErr('No line items found. The PDF may not contain a valid delivery docket.');
+    document.getElementById('out').style.display = 'block';
+    return;
+  }
+  show(items);
+}
+
+function parseBlock(block) {
+  const allText = block.lines.join('\n');
+
+  // ── Helper: classify a string segment ──────────────────────────
+  // Drawing patterns: A710-06750, 106071A01, DWG-12345, etc.
+  const isDwg = s => /^[A-Z]\d{2,3}-\d{4,6}$/.test(s)            // A710-06750
+                   || /^\d{4,6}[A-Z]\d{2,3}$/.test(s)             // 106071A01
+                   || /^[A-Z]{2,4}-?\d{4,6}$/.test(s);            // DWG-12345
+  const isPartId = s => /^\d{7,10}$/.test(s);
+  const isRef    = s => /^R-\d+(?:-\d+)*$/i.test(s);              // R-0258, R-0258-05-04
+  const isLineNo = s => /^LINE\s*#/i.test(s);
+
+  // ── Parse the LINE# pipe row (most structured data source) ────
+  const pipeRow = block.lines.find(l => /LINE\s*#/i.test(l)) || '';
+  const pipes = pipeRow ? pipeRow.split('|').map(s => s.trim()) : [];
+
+  let lineNum = '', partId = '', drawing = '', ref = '';
+
+  for (const seg of pipes) {
+    if (!seg) continue;
+    const lineM = seg.match(/LINE\s*#\s*(\d+)/i);
+    if (lineM)             { lineNum = lineM[1]; continue; }
+    if (isRef(seg))        { ref = seg; continue; }
+    if (isPartId(seg))     { if (!partId) partId = seg; continue; }
+    if (isDwg(seg))        { if (!drawing) drawing = seg; continue; }
+  }
+
+  // ── Fallback extraction from full text if pipe row missed them ─
+  if (!lineNum) {
+    const m = allText.match(/LINE\s*#\s*(\d+)/i);
+    if (m) lineNum = m[1];
+  }
+  if (!ref) {
+    // Bare ref on its own line, or after PROJECT keyword
+    const m = allText.match(/(?:^|\n)\s*(R-\d+(?:-\d+)*)\s*(?:\n|$)/im)
+           || allText.match(/PROJECT\s+(R-\d+(?:-\d+)*)/i);
+    if (m) ref = m[1];
+  }
+  if (!drawing) {
+    // Scan all text for drawing patterns
+    for (const line of block.lines) {
+      const segs = line.split(/[\s|]+/);
+      for (const s of segs) {
+        if (isDwg(s.trim()) && s.trim() !== partId) { drawing = s.trim(); break; }
+      }
+      if (drawing) break;
+    }
+  }
+  if (!partId) {
+    // 7-10 digit number that isn't the PO or delivery
+    const m = allText.match(/\b(\d{7,10})\b/g);
+    if (m) {
+      for (const id of m) {
+        if (id !== info.po && id !== info.delivery) { partId = id; break; }
+      }
+    }
+  }
+
+  // ── Due date ───────────────────────────────────────────────────
+  const dueM = allText.match(/(?:due|DUE)\s+(\d{1,2}[\/-]\w{2,9}[\/-]\d{2,4})/i);
+  const dueDate = dueM ? dueM[1] : '';
+
+  const docM = allText.match(/Doc\s*No\.?\s*([\w-]+)/i);
+  const docNo = docM ? docM[1] : '';
+
+  // ── Paint spec (multi-line) ────────────────────────────────────
+  let paintSpec = '';
+  const paintIdx = block.lines.findIndex(l => /Painting\s+Required/i.test(l));
+  if (paintIdx >= 0) {
+    const parts = [];
+    const same = block.lines[paintIdx].replace(/Painting\s+Required[;:]?\s*/i, '').trim();
+    if (same) parts.push(same);
+    for (let j = paintIdx + 1; j < block.lines.length; j++) {
+      const pl = block.lines[j].trim();
+      if (/^(due|DUE)\s/i.test(pl)) break;
+      if (/LINE\s*#/i.test(pl)) break;
+      if (/^(FAI|Material\s+cert)/i.test(pl)) break;
+      if (/^\d{1,3}\s+[A-Z]/i.test(pl)) break;
+      parts.push(pl);
+    }
+    paintSpec = parts.join('; ').replace(/\s+/g, ' ').trim();
+    paintSpec = paintSpec.replace(/\s*\d{2}\s+[A-Z]{3}\s+\d{4}\s+\d{2}:\d{2}\s*/, '').trim();
+  }
+
+  // FAI & Material certs
+  const hasFAI = /FAI\s+to\s+be\s+completed/i.test(allText);
+  const hasMatCert = /Material\s+cert/i.test(allText);
+
+  // ── Description: find the actual part name ─────────────────────
+  // Strategy: scan lines for the first one that looks like a part name
+  // (not a known metadata field, not a ref, not a drawing, etc.)
+  const metaPatterns = [
+    /^LINE\s*#/i, /^PROJECT\s/i, /^R-\d+/i,
+    /^Doc\s*No/i, /^DUE\s/i, /^Painting\s/i, /^FAI\s/i, /^Material\s+cert/i,
+    /^\d{7,10}$/, /^M\d+[\s/]/,      // part IDs, material specs
+  ];
+  const dueIdx = block.lines.findIndex(l => /^DUE\s/i.test(l.trim()));
+  let descText = '';
+  for (let li = 0; li < block.lines.length; li++) {
+    const t = block.lines[li].trim();
+    if (!t) continue;
+    if (metaPatterns.some(p => p.test(t))) continue;
+    if (isDwg(t) || isPartId(t) || isRef(t)) continue;
+    // Skip paint spec content lines (between paint header and DUE)
+    if (paintIdx >= 0 && li > paintIdx && (dueIdx < 0 || li < dueIdx)) continue;
+    descText = t.replace(/\|?\s*$/, '').trim();
+    break;
+  }
+
+  // Fallback: try extracting from pipe row segments
+  if (!descText && pipes.length) {
+    for (const seg of pipes) {
+      if (!seg || isLineNo(seg) || isRef(seg) || isPartId(seg) || isDwg(seg)) continue;
+      if (/^\d+$/.test(seg)) continue;
+      if (seg.length > 2) { descText = seg; break; }
+    }
+  }
+
+  let description = descText;
+  if (!description && docNo) description = docNo;
+
+  // Store raw parsed data for "Add from Notes" snippets
+  parsedNotes.push({
+    paintSpec, ref, dueDate, hasFAI, hasMatCert, lineNum, docNo
+  });
+
+  return {
+    qty: block.qty,
+    description: (description || '').replace(/\s+/g, ' ').trim(),
+    drawing: drawing,
+    partId: partId,
+    po: info.po,
+    lineNum: lineNum,
+    ref: ref,
+    notes: '',
+  };
+}
+
+/* ─── Display ─── */
+function show(items) {
+  document.getElementById('out').style.display = 'block';
+
+  // Title based on order type
+  const typeLabels = { ugl:'UGL Delivery', flashing:'Flashing Order', laserfab:'Laser/Fab Order', generic:'Order' };
+  const typeLabel = typeLabels[info.orderType] || 'Order';
+  const titleStr = info.delivery ? typeLabel + ' #' + info.delivery : typeLabel;
+  document.getElementById('title').textContent = titleStr;
+
+  document.getElementById('pPO').textContent = info.po ? 'PO ' + info.po : '';
+  document.getElementById('pDel').textContent = info.delivery ? '#' + info.delivery : '';
+  document.getElementById('pCust').textContent = info.customer;
+  document.getElementById('successBar').textContent = '\u2713 Extracted ' + items.length + ' line items from ' + titleStr;
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '';
+  items.forEach((it, idx) => addRowToTable(it, idx));
+
+  // Show profile column if any drawings have SVG data
+  const tbl = tb.closest('table');
+  if (profileSvgs.size > 0) tbl.classList.add('has-profiles');
+  else tbl.classList.remove('has-profiles');
+
+  recount();
+  // Auto-select first row so preview is populated immediately
+  const firstRow = tb.firstElementChild;
+  if (firstRow) selectRow(firstRow);
+}
+
+function h(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+function addRowToTable(it, idx) {
+  const tr = document.createElement('tr');
+  const rowIdx = idx !== undefined ? idx : parsedNotes.length;
+  tr.dataset.rowIdx = rowIdx;
+  tr.innerHTML = `
+    <td class="c-qty">
+      <input type="number" min="1" value="${it?it.qty:1}">
+    </td>
+    <td style="text-align:center;vertical-align:middle">
+      <input type="checkbox" class="row-check" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+    </td>
+    <td class="c-profile" style="text-align:center;vertical-align:middle">
+      <input type="checkbox" class="profile-check" ${profileSvgs.has(rowIdx) ? 'checked' : 'disabled'} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" title="Include profile drawing on label">
+    </td>
+    <td class="c-desc"><textarea class="desc-input" placeholder="Part name" rows="2">${it?h(it.description):''}</textarea></td>
+    <td class="c-ids">
+      <div class="cell-group">
+        <input class="cell-input dwg-input" value="${it?h(it.drawing):''}" placeholder="Drawing no.">
+        <input class="cell-input pid-input" value="${it?h(it.partId):''}" placeholder="Part ID">
+      </div>
+    </td>
+    <td class="c-ref">
+      <div class="cell-group">
+        <div class="cell-row"><span class="cell-lbl">PO</span><input class="cell-input po-input" value="${it?h(it.po):''}" placeholder="PO number"></div>
+        <div class="cell-row"><span class="cell-lbl">Line</span><input class="cell-input line-input" value="${it?h(it.lineNum):''}" placeholder="#"></div>
+        <div class="cell-row"><span class="cell-lbl">Proj</span><input class="cell-input ref-input" value="${it?h(it.ref):''}" placeholder="R-0000"></div>
+      </div>
+    </td>
+    <td class="c-notes">
+      <textarea class="notes-textarea" placeholder="Add notes...">${it?h(it.notes):''}</textarea>
+      <div class="notes-actions">
+        <button class="btn-add-notes">+ Add from Notes</button>
+        <button class="btn-reset-notes">Reset</button>
+      </div>
+    </td>
+    <td class="c-x"><button class="xbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
+
+  // Wire events
+  tr.querySelector('input[type="number"]').addEventListener('input', () => { recount(); if (selectedRowEl === tr) updatePreview(); });
+  tr.querySelector('.row-check').addEventListener('change', () => { recount(); if (selectedRowEl === tr) updatePreview(); });
+  const profileCb = tr.querySelector('.profile-check');
+  if (profileCb) profileCb.addEventListener('change', () => { if (selectedRowEl === tr) updatePreview(); });
+  tr.querySelector('.xbtn').addEventListener('click', () => {
+    if (selectedRowEl === tr) selectRow(null);
+    tr.remove(); recount();
+  });
+
+  // Row selection for live preview
+  tr.addEventListener('click', e => {
+    if (e.target.closest('.xbtn,.btn-add-notes,.btn-reset-notes') || e.target.type === 'checkbox') return;
+    selectRow(tr);
+  });
+
+  // All text inputs and description textarea update preview live
+  tr.querySelectorAll('input:not([type=checkbox]):not([type=number]), textarea.desc-input').forEach(inp =>
+    inp.addEventListener('input', () => { if (selectedRowEl === tr) updatePreview(); })
+  );
+
+  // Notes auto-apply on edit
+  const textarea = tr.querySelector('.notes-textarea');
+  textarea.addEventListener('input', () => { if (selectedRowEl === tr) updatePreview(); });
+
+  // Reset notes to empty
+  tr.querySelector('.btn-reset-notes').addEventListener('click', () => {
+    textarea.value = '';
+    if (selectedRowEl === tr) updatePreview();
+  });
+
+  tr.querySelector('.btn-add-notes').addEventListener('click', () => {
+    openNotesPopup(tr);
+  });
+
+  document.getElementById('tbody').appendChild(tr);
+}
+
+function addRow() {
+  parsedNotes.push({ paintSpec:'', ref:'', dueDate:'', hasFAI:false, hasMatCert:false, lineNum:'', docNo:'' });
+  addRowToTable({ qty:1, description:'', drawing:'', partId:'', po:info.po||'', lineNum:'', ref:'', notes:'' }, parsedNotes.length - 1);
+  recount();
+  const rows = document.getElementById('tbody').children;
+  const newRow = rows[rows.length - 1];
+  newRow.querySelector('.desc-input').focus();
+  selectRow(newRow);
+}
+
+function recount() {
+  let n = 0;
+  for (const r of document.getElementById('tbody').children) {
+    const q = parseInt(r.querySelector('input[type="number"]').value) || 0;
+    const single = r.querySelector('.row-check').checked;
+    n += single ? 1 : q;
+  }
+  document.getElementById('nLabels').textContent = n;
+}
+
+/* ─── Phase 1: Live label preview ─── */
+let selectedRowEl = null;
+
+function selectRow(tr) {
+  if (selectedRowEl) selectedRowEl.classList.remove('row-selected');
+  selectedRowEl = tr;
+  if (tr) tr.classList.add('row-selected');
+  updatePreview();
+}
+
+let _previewTimer = null;
+function updatePreview() {
+  // Debounce: render after 150ms of inactivity to keep typing responsive
+  clearTimeout(_previewTimer);
+  _previewTimer = setTimeout(_renderPreview, 150);
+}
+
+async function _renderPreview() {
+  const panel = document.getElementById('labelPreview');
+  if (!panel) return;
+  if (!selectedRowEl) {
+    panel.innerHTML = '<div class="lp-empty">Select a row<br>to preview its label</div>';
+    return;
+  }
+
+  const qty      = parseInt(selectedRowEl.querySelector('input[type="number"]').value) || 1;
+  const single   = selectedRowEl.querySelector('.row-check').checked;
+  const desc     = selectedRowEl.querySelector('.desc-input').value.trim();
+  const drawing  = selectedRowEl.querySelector('.dwg-input').value.trim();
+  const partId   = selectedRowEl.querySelector('.pid-input').value.trim();
+  const po       = selectedRowEl.querySelector('.po-input').value.trim();
+  const lineNum  = selectedRowEl.querySelector('.line-input').value.trim();
+  const ref      = selectedRowEl.querySelector('.ref-input').value.trim();
+  const notes    = selectedRowEl.querySelector('.notes-textarea').value.trim();
+
+  // Check for profile SVG
+  const rowIdx = parseInt(selectedRowEl.dataset.rowIdx) || 0;
+  const svgMarkup = profileSvgs.get(rowIdx);
+  const profileCb = selectedRowEl.querySelector('.profile-check');
+  const wantProfile = svgMarkup && profileCb && !profileCb.disabled && profileCb.checked;
+
+  // Label dimensions
+  const lSize = document.getElementById('lSize').value;
+  const [W, H] = lSize.split('x').map(Number);
+  const sizeTag = document.getElementById('previewSizeTag');
+  if (sizeTag) sizeTag.textContent = W + '\u00d7' + H + '\u00a0mm';
+
+  // Resize preview box proportionally
+  const panelWidth = panel.offsetWidth || 360;
+  panel.style.height = Math.round(panelWidth * H / W) + 'px';
+
+  // Build a single item (same structure as getItems)
+  const it = {
+    qty, single, description: desc, drawing, partId, po, lineNum, ref, notes,
+    profileSvg: wantProfile ? svgMarkup : null,
+  };
+
+  // Pre-render profile SVG if needed
+  if (it.profileSvg) {
+    try {
+      const vb = svgViewBox(it.profileSvg);
+      const renderW = 800;
+      const renderH = vb ? Math.round(renderW / vb.aspect) : 500;
+      it.profileImg = await svgToDataUrl(it.profileSvg, renderW, renderH);
+      it.profileAspect = vb ? vb.aspect : renderW / renderH;
+    } catch (e) { console.warn('Preview SVG render failed:', e); }
+  }
+
+  // Render label to a temporary jsPDF document
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
+  renderLabel(doc, it, 0, W, H);
+
+  // Convert jsPDF output → pdf.js → canvas
+  const pdfBytes = doc.output('arraybuffer');
+  try {
+    const pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+    const page = await pdfDoc.getPage(1);
+    // Scale to fill preview panel width
+    const scale = panelWidth / (W * 72 / 25.4); // W mm → points → pixels
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    panel.innerHTML = '';
+    panel.appendChild(canvas);
+  } catch (e) {
+    console.warn('Preview render failed:', e);
+    panel.innerHTML = '<div class="lp-empty">Preview error</div>';
+  }
+}
+
+/* ─── Notes Popup ─── */
+let activeNotesRow = null;
+
+function openNotesPopup(tr) {
+  activeNotesRow = tr;
+  const rowIdx = parseInt(tr.dataset.rowIdx) || 0;
+  const data = parsedNotes[rowIdx] || {};
+
+  // Build snippets from parsed data
+  const snippets = [];
+
+  if (data.dueDate) {
+    snippets.push({ title:'Due Date', preview:'Due ' + data.dueDate, text:'Due ' + data.dueDate });
+  }
+  if (data.ref) {
+    snippets.push({ title:'Project Reference', preview:'PROJECT ' + data.ref, text:'PROJECT ' + data.ref });
+  }
+  if (data.paintSpec) {
+    snippets.push({ title:'Painting Specifications', preview: data.paintSpec.length > 80 ? data.paintSpec.substring(0,80)+'...' : data.paintSpec, text:'Painting Required;\n' + data.paintSpec });
+  }
+  if (data.hasFAI) {
+    snippets.push({ title:'FAI Required', preview:'FAI to be completed by vendor', text:'FAI to be completed' });
+  }
+  if (data.hasMatCert) {
+    snippets.push({ title:'Material Certificates', preview:'Material certificates required', text:'Material certificates required' });
+  }
+  // Flashing-specific data
+  if (data.flashingDetail) {
+    snippets.push({ title:'Flashing Details', preview: data.flashingDetail, text: data.flashingDetail });
+  }
+  if (data.flashingDims) {
+    snippets.push({ title:'Dimensions', preview: data.flashingDims, text:'Dims: ' + data.flashingDims });
+  }
+  if (data.flashingPrice) {
+    snippets.push({ title:'Price', preview: data.flashingPrice, text: data.flashingPrice });
+  }
+  // Raw description/attributes
+  if (data.accountingCode) {
+    snippets.push({ title:'Accounting Code', preview: data.accountingCode, text: data.accountingCode });
+  }
+  if (data.rawDescription) {
+    snippets.push({ title:'Description', preview: data.rawDescription.length > 80 ? data.rawDescription.substring(0,80)+'...' : data.rawDescription, text: data.rawDescription });
+  }
+  if (data.rawAttributes && data.rawAttributes.length) {
+    const attrText = data.rawAttributes.map(a => a.label + ': ' + a.value).join('\n');
+    snippets.push({ title:'Attributes', preview: attrText.length > 80 ? attrText.substring(0,80)+'...' : attrText, text: attrText });
+  }
+
+  if (!snippets.length) {
+    snippets.push({ title:'No notes detected', preview:'No additional data was found in the docket for this item', text:'' });
+  }
+
+  window._popupSnippets = snippets;
+
+  const list = document.getElementById('snippetList');
+  list.innerHTML = snippets.map((s, i) => `
+    <div class="snippet" data-idx="${i}">
+      <input type="checkbox" id="snip-${i}" ${s.text ? '' : 'disabled'}>
+      <div class="snippet-body">
+        <div class="snippet-title">${h(s.title)}</div>
+        <div class="snippet-preview">${h(s.preview)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Wire snippet clicks
+  list.querySelectorAll('.snippet').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox') return;
+      const cb = el.querySelector('input[type="checkbox"]');
+      if (!cb.disabled) cb.checked = !cb.checked;
+    });
+  });
+
+  document.getElementById('popupOverlay').classList.add('show');
+  document.getElementById('notesPopup').classList.add('show');
+}
+
+function closePopup() {
+  document.getElementById('popupOverlay').classList.remove('show');
+  document.getElementById('notesPopup').classList.remove('show');
+  activeNotesRow = null;
+}
+
+function insertSnippets() {
+  if (!activeNotesRow) return;
+  const snippets = window._popupSnippets || [];
+  const selected = [];
+  snippets.forEach((s, i) => {
+    const cb = document.getElementById('snip-' + i);
+    if (cb && cb.checked && s.text) selected.push(s.text);
+  });
+
+  if (selected.length) {
+    const textarea = activeNotesRow.querySelector('.notes-textarea');
+    const current = textarea.value.trim();
+    textarea.value = current ? current + '\n' + selected.join('\n') : selected.join('\n');
+    if (selectedRowEl === activeNotesRow) updatePreview();
+  }
+  closePopup();
+}
+
+// Wire popup buttons
+document.getElementById('popupClose').addEventListener('click', closePopup);
+document.getElementById('popupOverlay').addEventListener('click', closePopup);
+document.getElementById('insertBtn').addEventListener('click', insertSnippets);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePopup();
+});
+
+/* ─── Collect items for PDF ─── */
+function getItems() {
+  const out = [];
+  for (const r of document.getElementById('tbody').children) {
+    const qty = parseInt(r.querySelector('input[type="number"]').value) || 0;
+    if (qty < 1) continue;
+    const rowIdx = parseInt(r.dataset.rowIdx) || 0;
+    const profileCb = r.querySelector('.profile-check');
+    const wantProfile = profileCb && !profileCb.disabled && profileCb.checked;
+    out.push({
+      qty,
+      single: r.querySelector('.row-check').checked,
+      description: r.querySelector('.desc-input').value.trim(),
+      drawing: r.querySelector('.dwg-input').value.trim(),
+      partId: r.querySelector('.pid-input').value.trim(),
+      po: r.querySelector('.po-input').value.trim(),
+      lineNum: r.querySelector('.line-input').value.trim(),
+      ref: r.querySelector('.ref-input').value.trim(),
+      notes: r.querySelector('.notes-textarea').value.trim(),
+      profileSvg: wantProfile ? profileSvgs.get(rowIdx) : null,
+    });
+  }
+  return out;
+}
+
+function showErr(m) {
+  document.getElementById('out').style.display = 'block';
+  const el = document.getElementById('msg'); el.className = 'msg err'; el.textContent = m;
+}
+
+function resetAll() {
+  info = { po:'', delivery:'', customer:'', orderType:'generic', contact:{}, notes:'', status:'', requiredDate:'', createdDate:'', qboNumber:'' };
+  parsedNotes = [];
+  profileSvgs.clear();
+  selectedRowEl = null;
+  document.getElementById('out').style.display = 'none';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('msg').className = 'msg';
+  document.getElementById('dbg').style.display = 'none';
+  document.getElementById('factoryLink').value = '';
+  fileIn.value = '';
+  document.getElementById('toggleAll').checked = false;
+}
+
+/* ─── SVG → PNG helper for profile drawings ─── */
+function svgViewBox(markup) {
+  const m = markup.match(/viewBox="([^"]+)"/);
+  if (!m) return null;
+  const [x, y, w, h] = m[1].split(/\s+/).map(Number);
+  return { x, y, w, h, aspect: w / h };
+}
+
+function svgToDataUrl(svgMarkup, width, height) {
+  return new Promise((resolve, reject) => {
+    // Fix SVG for standalone rendering as image
+    let svg = svgMarkup
+      .replace(/width="100%"/, 'width="' + width + '"')
+      .replace(/height="100%"/, 'height="' + height + '"')
+      .replace(/class="[^"]*"/, '')
+      .replace(/font-family="Open Sans"/g, 'font-family="Arial,sans-serif"');
+    // Add xmlns if missing (required for standalone SVG rendering)
+    if (!/xmlns=/.test(svg)) {
+      svg = svg.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    // Ensure width/height attributes exist (not just removed 100%)
+    if (!/\bwidth="/.test(svg)) {
+      svg = svg.replace(/^<svg/, '<svg width="' + width + '"');
+    }
+    if (!/\bheight="/.test(svg)) {
+      svg = svg.replace(/^(<svg\b[^>]*?)>/, '$1 height="' + height + '">');
+    }
+    const encoded = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('SVG render failed'));
+    img.src = encoded;
+  });
+}
+
+/* ─── Label layout engine (updated design) ─── */
+function renderLabel(doc, it, pageIndex, W, H) {
+  const descName    = it.description || '\u2014';
+  const descDrawing = it.drawing || '';
+  const descPartId  = it.partId || '';
+
+  const infoBits = [];
+  if (it.po)      infoBits.push('PO ' + it.po);
+  if (it.lineNum) infoBits.push('Line #' + it.lineNum);
+  if (it.ref)     infoBits.push(it.ref);
+
+  const m     = 3;
+  const PT    = 0.3528;            // 1 pt in mm
+  const QR_MM = 16;                // QR code size (bigger for scannability)
+  const factoryLink = (document.getElementById('factoryLink') || {}).value || '';
+  const qrToggle = document.getElementById('qrToggle');
+  const qrEnabled = qrToggle ? qrToggle.checked : true;
+  const hasQR = !!(typeof qrcode !== 'undefined' && factoryLink.trim() && qrEnabled);
+  const qrX   = W - m - QR_MM;
+
+  // Natural font sizes per spec
+  const FS = { hdr: 10.5, desc: 19, ctr: 18, id: 12, notes: 8, foot: 10.5 };
+
+  // Measure counter text width so description doesn't overlap it
+  const labelStr = it.single ? 'Qty: ' + it.qty : (pageIndex + 1) + ' of ' + it.qty;
+  doc.setFont('helvetica','bold'); doc.setFontSize(FS.ctr);
+  const ctrW = doc.getTextWidth(labelStr) + 3;  // + gap
+  const descW = W - m * 2 - ctrW;
+
+  // Measure at natural sizes to get scale factor
+  doc.setFont('helvetica','bold'); doc.setFontSize(FS.desc);
+  const descLines0 = [];
+  descName.split('\n').forEach(line => {
+    descLines0.push(...doc.splitTextToSize(line.trim(), descW));
+  });
+  const descLineCount0 = Math.min(descLines0.length, 4);
+  const descLH0     = FS.desc * PT * 1.28;
+  const ctrLH0      = FS.ctr  * PT * 1.28;
+  const idLH0       = FS.id   * PT * 1.28;
+  const notesLH0    = FS.notes * PT * 1.28;
+  const hdrLH       = FS.hdr  * PT * 1.4;
+  const footLH      = FS.foot * PT * 1.4;
+
+  const hasIds  = !!(descDrawing || descPartId);
+  const hasInfo = infoBits.length > 0;
+  const hasNotes = !!(it.notes && it.notes.trim());
+
+  // Body block = max(description height, counter height)
+  const bodyBlock0 = Math.max(descLineCount0 * descLH0, ctrLH0);
+  const hdrZone    = hdrLH + 0.5 + 1.8;   // header line + gap + rule + padding
+  const footZone   = hasQR ? QR_MM + 1.5 : footLH + 2.5;  // QR fills footer height, or just text
+  const avail      = H - m * 2 - hdrZone - footZone;
+  const idLines    = (hasIds ? 1 : 0) + (hasInfo ? 1 : 0);
+  const need       = bodyBlock0 + 1 + idLines * idLH0 + (hasNotes ? notesLH0 * 2 : 0);
+  const sf         = need > avail ? avail / need : 1;
+
+  // Scaled (clamped) font sizes
+  const fDesc = Math.max(9,  FS.desc * sf);
+  const fCtr  = Math.max(9,  FS.ctr  * sf);
+  const fId   = Math.max(7,  FS.id   * sf);
+  const fNotes = Math.max(6, FS.notes * sf);
+  const descLH = fDesc * PT * 1.28;
+  const ctrLH  = fCtr  * PT * 1.28;
+  const idLH   = fId   * PT * 1.28;
+  const notesLH = fNotes * PT * 1.28;
+
+  let y = m;
+
+  // ── HEADER: ACADEMY SHEETMETAL (left) · DEL#/status (right, grey) ─
+  doc.setFont('helvetica','bold'); doc.setFontSize(FS.hdr); doc.setTextColor(25, 25, 25);
+  doc.text('ACADEMY SHEETMETAL', m, y + hdrLH * 0.78);
+  const hdrRight = info.delivery ? '#' + info.delivery : (info.status || '');
+  if (hdrRight) {
+    doc.setTextColor(0, 0, 0);
+    doc.text(hdrRight, W - m, y + hdrLH * 0.78, { align: 'right' });
+  }
+  doc.setTextColor(0, 0, 0);
+  y += hdrLH + 0.5;
+
+  // ── THICK HEADER RULE ──────────────────────────────────────────
+  doc.setDrawColor(50, 50, 50); doc.setLineWidth(0.55);
+  doc.line(m, y, W - m, y);
+  y += 1.8;
+  const bodyTop = y;
+
+  // ── PROFILE DRAWING LAYOUT: drawing LEFT, text RIGHT ──
+  // Fixed font sizes for profile labels — consistent across all label heights
+  // Drawing is nearly square, placed on the left using full body height
+  if (it.profileImg) {
+    const profileAspect = it.profileAspect || 1.5;
+    const pDesc = 10, pCtr = 10, pId = 9, pNotes = 7;
+    const pDescLH = pDesc * PT * 1.28;
+    const pCtrLH  = pCtr  * PT * 1.28;
+    const pIdLH   = pId   * PT * 1.28;
+    const pNotesLH = pNotes * PT * 1.28;
+
+    // Drawing area: full height between header rule and footer rule
+    const drawBottom = H - m - footLH - 1;
+    const drawAvailH = drawBottom - bodyTop;
+    // Drawing is nearly square — width = height * aspect, capped at half label width
+    let imgH = drawAvailH, imgW = drawAvailH * profileAspect;
+    const maxDrawW = (W - m * 2) * 0.5;
+    if (imgW > maxDrawW) { imgW = maxDrawW; imgH = maxDrawW / profileAspect; }
+
+    // Render drawing on the left
+    const drawX = m;
+    const drawY = bodyTop + (drawAvailH - imgH) / 2; // vertically center
+    try {
+      doc.addImage(it.profileImg, 'PNG', drawX, drawY, imgW, imgH);
+    } catch (e) { console.warn('Profile image failed:', e); }
+
+    // Text zone: right of drawing
+    const textX = m + imgW + 2; // 2mm gap after drawing
+    const textW = W - m - textX;
+
+    // Counter top-right of text zone
+    doc.setFont('helvetica','bold'); doc.setFontSize(pCtr); doc.setTextColor(0, 0, 0);
+    const pCtrW = doc.getTextWidth(labelStr) + 2;
+    doc.text(labelStr, W - m, bodyTop + pCtrLH * 0.82, { align: 'right' });
+
+    // Description (in text zone, left-aligned)
+    const compactDesc = descName.replace(/\n/g, ' | ');
+    const pDescW = textW - pCtrW;
+    doc.setFont('helvetica','bold'); doc.setFontSize(pDesc); doc.setTextColor(0, 0, 0);
+    const profDescLines = doc.splitTextToSize(compactDesc, pDescW);
+    const profDescCount = Math.min(profDescLines.length, 3);
+    doc.text(profDescLines.slice(0, profDescCount), textX, bodyTop + pDescLH * 0.78);
+
+    y = bodyTop + Math.max(profDescCount * pDescLH, pCtrLH) + 0.5;
+
+    // PO | Line | Ref
+    if (hasInfo) {
+      doc.setFont('helvetica','normal'); doc.setFontSize(pId); doc.setTextColor(0, 0, 0);
+      doc.text(infoBits.join(' | '), textX, y + pIdLH * 0.78);
+      y += pIdLH;
+    }
+
+    // Notes
+    if (hasNotes) {
+      doc.setFont('helvetica','normal'); doc.setFontSize(pNotes); doc.setTextColor(80, 80, 80);
+      const notesLines = [];
+      it.notes.split('\n').forEach(line => { notesLines.push(...doc.splitTextToSize(line.trim(), textW)); });
+      doc.text(notesLines.slice(0, 3), textX, y + pNotesLH * 0.78);
+      doc.setTextColor(0, 0, 0);
+      y += pNotesLH * Math.min(notesLines.length, 3);
+    }
+
+    y = drawBottom;
+
+  } else {
+  // ── STANDARD LAYOUT (no profile) ─────────────────────────────
+
+  // ── DESCRIPTION (left, multiline with line-break support) ────
+  doc.setFont('helvetica','bold'); doc.setFontSize(fDesc); doc.setTextColor(0, 0, 0);
+  // Split on explicit newlines first, then wrap each line
+  const descLines = [];
+  descName.split('\n').forEach(line => {
+    const wrapped = doc.splitTextToSize(line.trim(), descW);
+    descLines.push(...wrapped);
+  });
+  // Limit to 4 lines max to prevent overflow
+  const descLinesLimited = descLines.slice(0, 4);
+  doc.text(descLinesLimited, m, y + descLH * 0.82);
+
+  // ── COUNTER: top-right of body, same weight as description
+  doc.setFont('helvetica','bold'); doc.setFontSize(fCtr); doc.setTextColor(0, 0, 0);
+  doc.text(labelStr, W - m, bodyTop + ctrLH * 0.82, { align: 'right' });
+
+  // Advance y past the taller of (description) or (counter)
+  y = bodyTop + Math.max(descLinesLimited.length * descLH, ctrLH) + 1;
+
+  // ── DRAWING | PART ID (normal weight) ───────────────────
+  if (hasIds) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(fId); doc.setTextColor(0, 0, 0);
+    doc.text([descDrawing, descPartId].filter(Boolean).join(' | '), m, y + idLH * 0.78);
+    y += idLH;
+  }
+
+  // ── PO | LINE | REF (normal weight) ────────────
+  if (hasInfo) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(fId); doc.setTextColor(0, 0, 0);
+    doc.text(infoBits.join(' | '), m, y + idLH * 0.78);
+    y += idLH;
+  }
+
+  // ── NOTES (small, grey, up to 2 lines) ──────────────────────
+  if (hasNotes) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(fNotes); doc.setTextColor(80, 80, 80);
+    const notesLines = [];
+    it.notes.split('\n').forEach(line => {
+      notesLines.push(...doc.splitTextToSize(line.trim(), W - m * 2));
+    });
+    const notesLimited = notesLines.slice(0, 2);
+    doc.text(notesLimited, m, y + notesLH * 0.78);
+    doc.setTextColor(0, 0, 0);
+    y += notesLH * notesLimited.length;
+  }
+
+  } // end standard layout
+
+  // ── FOOTER ZONE: rule + customer (left) + QR (right) ────────────
+  const footRuleY = H - m - footLH - 1.2;
+  const qrFootH = QR_MM + 1;  // QR height + small gap
+  const qrFootY = H - m - qrFootH + 0.5;  // align QR bottom to label bottom margin
+
+  doc.setDrawColor(50, 50, 50); doc.setLineWidth(0.55);
+  if (hasQR) {
+    // Split rule: stops before QR
+    doc.line(m, footRuleY, qrX - 1.5, footRuleY);
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(factoryLink.trim());
+      qr.make();
+      doc.addImage(qr.createDataURL(2, 0), 'PNG', qrX, qrFootY, QR_MM, QR_MM);
+    } catch (e) { console.warn('QR failed:', e); }
+  } else {
+    // Full-width rule
+    doc.line(m, footRuleY, W - m, footRuleY);
+  }
+
+  // ── CUSTOMER (footer, left-aligned) ────────────────────────────
+  if (info.customer) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(FS.foot); doc.setTextColor(25, 25, 25);
+    doc.text(info.customer, m, H - m + 0.3);
+    doc.setTextColor(0, 0, 0);
+  }
+
+}
+
+/* ─── PDF Label Generation ─── */
+async function makePDF() {
+  const btn = document.getElementById('goBtn'), msg = document.getElementById('msg');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  msg.className = 'msg'; msg.textContent = '';
+  try {
+    const items = getItems();
+    if (!items.length) { msg.className='msg err'; msg.textContent='No items.'; btn.disabled=false; btn.textContent='Generate Label PDF'; return; }
+
+    // Pre-render profile SVGs to PNG data URLs
+    for (const it of items) {
+      if (it.profileSvg) {
+        try {
+          const vb = svgViewBox(it.profileSvg);
+          const renderW = 800;
+          const renderH = vb ? Math.round(renderW / vb.aspect) : 500;
+          it.profileImg = await svgToDataUrl(it.profileSvg, renderW, renderH);
+          it.profileAspect = vb ? vb.aspect : renderW / renderH;
+        } catch (e) { console.warn('Profile SVG render failed:', e); }
+      }
+    }
+
+    const { jsPDF } = window.jspdf;
+    const [W, H] = document.getElementById('lSize').value.split('x').map(Number);
+    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:[W, H] });
+    let first = true;
+    for (const it of items) {
+      const count = it.single ? 1 : it.qty;
+      for (let i = 0; i < count; i++) {
+        if (!first) doc.addPage([W, H], 'landscape');
+        first = false;
+        renderLabel(doc, it, i, W, H);
+      }
+    }
+    const fn = 'labels_' + (info.delivery||'X') + '_PO' + (info.po||'X') + '.pdf';
+
+    // Sandbox CSP blocks blob downloads, so send to parent frame
+    if (window.parent !== window) {
+      const blob = doc.output('blob');
+      const reader = new FileReader();
+      reader.onload = () => {
+        window.parent.postMessage({
+          type: 'downloadPdf',
+          dataUrl: reader.result,
+          filename: fn
+        }, '*');
+      };
+      reader.readAsDataURL(blob);
+    } else {
+      // Standalone mode (not in extension) - direct download
+      doc.save(fn);
+    }
+    msg.className = 'msg ok';
+    msg.innerHTML = '\u2713 Generated <strong>' + fn + '</strong>';
+  } catch(err) {
+    msg.className = 'msg err'; msg.textContent = 'Error: ' + err.message;
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = 'Generate Label PDF';
+}
+
+/* ─── Direct Print ─── */
+async function printLabels() {
+  const btn = document.getElementById('printBtn'), msg = document.getElementById('msg');
+  btn.disabled = true; btn.textContent = 'Preparing...';
+  msg.className = 'msg'; msg.textContent = '';
+  try {
+    const items = getItems();
+    if (!items.length) { msg.className='msg err'; msg.textContent='No items.'; btn.disabled=false; btn.textContent='Print Labels'; return; }
+
+    for (const it of items) {
+      if (it.profileSvg) {
+        try {
+          const vb = svgViewBox(it.profileSvg);
+          const renderW = 800;
+          const renderH = vb ? Math.round(renderW / vb.aspect) : 500;
+          it.profileImg = await svgToDataUrl(it.profileSvg, renderW, renderH);
+          it.profileAspect = vb ? vb.aspect : renderW / renderH;
+        } catch (e) { console.warn('Profile SVG render failed:', e); }
+      }
+    }
+
+    const { jsPDF } = window.jspdf;
+    const [W, H] = document.getElementById('lSize').value.split('x').map(Number);
+    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:[W, H] });
+    let first = true;
+    for (const it of items) {
+      const count = it.single ? 1 : it.qty;
+      for (let i = 0; i < count; i++) {
+        if (!first) doc.addPage([W, H], 'landscape');
+        first = false;
+        renderLabel(doc, it, i, W, H);
+      }
+    }
+
+    if (window.parent !== window) {
+      const blob = doc.output('blob');
+      const reader = new FileReader();
+      reader.onload = () => {
+        window.parent.postMessage({
+          type: 'printPdf',
+          dataUrl: reader.result,
+        }, '*');
+      };
+      reader.readAsDataURL(blob);
+    } else {
+      // Standalone: open blob URL and print
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const printWin = window.open(url, '_blank');
+      if (printWin) printWin.addEventListener('load', () => { printWin.print(); });
+    }
+    msg.className = 'msg ok'; msg.textContent = '\u2713 Print dialog opened';
+  } catch(err) {
+    msg.className = 'msg err'; msg.textContent = 'Error: ' + err.message;
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = 'Print Labels';
+}
+
+/* ─── Wire up buttons ─── */
+document.getElementById('addRowBtn').addEventListener('click', addRow);
+document.getElementById('goBtn').addEventListener('click', makePDF);
+document.getElementById('printBtn').addEventListener('click', printLabels);
+document.getElementById('lSize').addEventListener('change', updatePreview);
+document.getElementById('factoryLink').addEventListener('input', updatePreview);
+document.getElementById('qrToggle').addEventListener('change', updatePreview);
+document.getElementById('toggleAll').addEventListener('change', (e) => {
+  document.querySelectorAll('#tbody .row-check').forEach(cb => { cb.checked = e.target.checked; });
+  recount();
+  updatePreview();
+});
+
+document.getElementById('toggleProfiles').addEventListener('change', (e) => {
+  document.querySelectorAll('#tbody .profile-check').forEach(cb => {
+    if (!cb.disabled) cb.checked = e.target.checked;
+  });
+  updatePreview();
+});
+
+/* ─── Signal ready to parent ─── */
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'sandboxReady' }, '*');
+}
+</script>
+</body>
+</html>
