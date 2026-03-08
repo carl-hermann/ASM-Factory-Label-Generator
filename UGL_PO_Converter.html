@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UGL PO Converter</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #003a5d;
+            --secondary: #5b9bd5;
+            --accent: #5b9bd5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+        }
+        
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #003a5d 0%, #5b9bd5 100%);
+            min-height: 100vh;
+            padding: 1.5rem;
+            color: var(--text);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: slideDown 0.6s ease-out;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1rem;
+        }
+        
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+        
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg);
+        }
+        
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(91, 155, 213, 0.05);
+        }
+        
+        .upload-zone:hover::before {
+            opacity: 0.05;
+        }
+        
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(91, 155, 213, 0.1);
+            transform: scale(1.005);
+        }
+        
+        .upload-zone.dragover::before {
+            opacity: 0.1;
+        }
+        
+        .upload-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+        
+        .upload-text {
+            text-align: left;
+            flex: 1;
+        }
+        
+        .upload-zone h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        .upload-zone p {
+            color: var(--text-muted);
+            margin-bottom: 0;
+            font-size: 0.85rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, var(--accent) 0%, #0284c7 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .file-list {
+            margin-top: 1.5rem;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .file-icon {
+            font-size: 1.5rem;
+        }
+        
+        .file-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .file-size {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        
+        .remove-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            font-size: 1.2rem;
+            transition: color 0.2s ease;
+        }
+        
+        .remove-btn:hover {
+            color: #ef4444;
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .status.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .status.processing {
+            background: rgba(14, 165, 233, 0.1);
+            border-left: 4px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .status.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid var(--success);
+            color: var(--success);
+        }
+        
+        .status.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            color: #ef4444;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(14, 165, 233, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+        }
+        
+        .results {
+            margin-top: 2rem;
+        }
+        
+        .result-item {
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .result-info {
+            flex: 1;
+        }
+        
+        .result-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .result-meta {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        
+        .download-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .results-table {
+            margin-top: 2rem;
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .results-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .results-table th {
+            background: var(--primary);
+            color: white;
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+            font-size: 0.85rem;
+        }
+        
+        .results-table td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            font-size: 0.85rem;
+        }
+        
+        /* Specific column widths */
+        .results-table th:nth-child(1), .results-table td:nth-child(1) { width: 85px; }   /* Created Date */
+        .results-table th:nth-child(2), .results-table td:nth-child(2) { width: 100px; }  /* Purch. Doc. */
+        .results-table th:nth-child(3), .results-table td:nth-child(3) { width: 45px; }   /* Item */
+        .results-table th:nth-child(4), .results-table td:nth-child(4) { width: 100px; }  /* WBS Elem. */
+        .results-table th:nth-child(5), .results-table td:nth-child(5) { width: 90px; }   /* Material */
+        .results-table th:nth-child(6), .results-table td:nth-child(6) { width: 100px; }  /* Drawing Number */
+        .results-table th:nth-child(7), .results-table td:nth-child(7) { 
+            min-width: 250px;
+            max-width: 350px;
+            white-space: normal;
+            word-wrap: break-word;
+        }  /* Description */
+        .results-table th:nth-child(8), .results-table td:nth-child(8) { width: 50px; } /* Sched. Qty */
+        .results-table th:nth-child(9), .results-table td:nth-child(9) { width: 50px; } /* Gr. Qty */
+        .results-table th:nth-child(10), .results-table td:nth-child(10) { width: 50px; } /* OS Qty */
+        .results-table th:nth-child(11), .results-table td:nth-child(11) { width: 85px; }  /* PO Date */
+        .results-table th:nth-child(12), .results-table td:nth-child(12) { width: 85px; }  /* Req. Date */
+        .results-table th:nth-child(13), .results-table td:nth-child(13) { width: 85px; }  /* View Notes */
+        
+        /* Center numeric columns */
+        .results-table th:nth-child(1),  /* Created Date */
+        .results-table th:nth-child(3),  /* Item */
+        .results-table th:nth-child(8),  /* Sched. Qty */
+        .results-table th:nth-child(9),  /* Gr. Qty */
+        .results-table th:nth-child(10), /* OS Qty */
+        .results-table th:nth-child(11), /* PO Date */
+        .results-table th:nth-child(12), /* Req. Date */
+        .results-table th:nth-child(13), /* View Notes */
+        .results-table td:nth-child(1),  /* Created Date */
+        .results-table td:nth-child(3),  /* Item */
+        .results-table td:nth-child(8),  /* Sched. Qty */
+        .results-table td:nth-child(9),  /* Gr. Qty */
+        .results-table td:nth-child(10), /* OS Qty */
+        .results-table td:nth-child(11), /* PO Date */
+        .results-table td:nth-child(12)  /* Req. Date */
+        {
+            text-align: center;
+        }
+        
+        .results-table tbody tr:hover {
+            background: var(--bg);
+        }
+        
+        .results-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .table-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .copy-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        }
+        
+        .copy-btn.copied {
+            background: var(--success);
+        }
+        
+        .preview-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .preview-tab {
+            background: none;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1.15rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            margin-bottom: -2px;
+        }
+        
+        .preview-tab:hover {
+            color: var(--primary);
+        }
+        
+        .preview-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--accent);
+        }
+        
+        .preview-section {
+            display: none;
+        }
+        
+        .preview-section.active {
+            display: block;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .preview-header h3 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 1.25rem;
+        }
+        
+        .preview-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        .notes-preview {
+            max-width: 150px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            color: var(--accent);
+        }
+        
+        .notes-preview:hover {
+            text-decoration: underline;
+        }
+        
+        .expand-btn {
+            background: none;
+            color: var(--accent);
+            border: none;
+            padding: 0;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        
+        .expand-btn:hover {
+            color: var(--secondary);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary);
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background: var(--bg);
+            color: var(--text);
+        }
+        
+        .modal-body {
+            white-space: pre-wrap;
+            line-height: 1.6;
+            color: var(--text);
+        }
+        
+        .editable-cell {
+            position: relative;
+            cursor: text;
+            min-height: 60px;
+        }
+        
+        .editable-cell:hover {
+            background: var(--bg);
+        }
+        
+        .description-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 0.5rem;
+            border: 2px solid var(--accent);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        
+        .description-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            align-items: center;
+        }
+        
+        .add-notes-btn {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .add-notes-btn:hover {
+            background: var(--primary);
+        }
+        
+        .save-desc-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .save-desc-btn:hover {
+            background: #059669;
+        }
+        
+        .cancel-desc-btn {
+            background: var(--text-muted);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .cancel-desc-btn:hover {
+            background: var(--text);
+        }
+        
+        .notes-popup {
+            display: none;
+            position: fixed;
+            z-index: 999998;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 500px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .notes-popup.show {
+            display: block;
+        }
+        
+        .notes-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .notes-popup-header h4 {
+            margin: 0;
+            color: var(--primary);
+        }
+        
+        .notes-popup-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .notes-popup-close:hover {
+            background: var(--bg);
+            color: var(--text);
+        }
+        
+        .notes-snippet {
+            display: flex;
+            align-items: flex-start;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .notes-snippet:hover {
+            background: var(--bg);
+            border-color: var(--accent);
+        }
+        
+        .notes-snippet input[type="checkbox"] {
+            margin-right: 0.75rem;
+            margin-top: 0.25rem;
+            cursor: pointer;
+        }
+        
+        .notes-snippet-content {
+            flex: 1;
+        }
+        
+        .notes-snippet-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .notes-snippet-preview {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+        }
+        
+        .notes-popup-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .insert-snippets-btn {
+            flex: 1;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .insert-snippets-btn:hover {
+            background: var(--primary);
+        }
+        
+        .info-section {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            color: white;
+            animation: fadeIn 0.8s ease-out 0.4s both;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .info-toggle {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s ease;
+        }
+        
+        .info-toggle:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .info-toggle-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.8rem;
+        }
+        
+        .info-toggle-icon.expanded {
+            transform: rotate(180deg);
+        }
+        
+        .info-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .info-content.expanded {
+            max-height: 400px;
+        }
+        
+        .info-inner {
+            padding: 0 1.5rem 1rem 1.5rem;
+        }
+        
+        .info-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .info-section li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            font-size: 0.9rem;
+        }
+        
+        .info-section li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: bold;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 1.5rem;
+            }
+            
+            .upload-zone {
+                padding: 2rem 1rem;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            .results-table {
+                overflow-x: auto;
+            }
+        }
+        
+        @media (min-width: 1400px) {
+            body {
+                padding: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>UGL PO Converter</h1>
+        </div>
+        
+        <div class="card">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-content">
+                    <div class="upload-text">
+                        <h3>📄 Drop PDF files here or click to select</h3>
+                        <p>Upload one or more UGL purchase orders</p>
+                    </div>
+                    <button class="btn" id="selectFilesBtn">
+                        Select Files
+                    </button>
+                </div>
+            </div>
+            
+            <input type="file" id="fileInput" multiple accept=".pdf">
+            
+            <div class="file-list" id="fileList"></div>
+            
+            <div class="status" id="status"></div>
+            
+            <div id="resultsContainer"></div>
+        </div>
+        
+        <div class="info-section">
+            <button class="info-toggle" onclick="toggleInfo()">
+                <span>ℹ️ How it works</span>
+                <span class="info-toggle-icon" id="infoToggleIcon">▼</span>
+            </button>
+            <div class="info-content" id="infoContent">
+                <div class="info-inner">
+                    <ul>
+                        <li>Upload one or more UGL purchase order PDFs</li>
+                        <li>Click "Extract Data" to process all line items</li>
+                        <li>Preview data in "Open Orders" or "Factory Import" tabs</li>
+                        <li>Copy to clipboard or download Excel files</li>
+                        <li>All processing happens in your browser - files stay private</li>
+                    </ul>
+                    <p style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.8;">
+                        Version 1.0 | For Academy Sheetmetal
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let selectedFiles = [];
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const convertSection = document.getElementById('convertSection');
+        const convertBtn = document.getElementById('convertBtn');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const selectFilesBtn = document.getElementById('selectFilesBtn');
+        
+        // Upload zone interactions
+        uploadZone.addEventListener('click', (e) => {
+            // Don't trigger if clicking the button itself
+            if (e.target === selectFilesBtn || selectFilesBtn.contains(e.target)) {
+                return;
+            }
+            fileInput.click();
+        });
+        
+        selectFilesBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent upload zone click from firing
+            fileInput.click();
+        });
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        function handleFiles(files) {
+            const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+            selectedFiles = [...selectedFiles, ...pdfFiles];
+            updateFileList();
+            
+            // Auto-trigger extraction if files were added
+            if (pdfFiles.length > 0) {
+                // Small delay to ensure UI updates
+                setTimeout(() => {
+                    processFiles();
+                }, 100);
+            }
+        }
+        
+        function updateFileList() {
+            if (selectedFiles.length === 0) {
+                fileList.innerHTML = '';
+                return;
+            }
+            
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-icon">📋</div>
+                        <div>
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${formatFileSize(file.size)}</div>
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeFile(${index})">×</button>
+                </div>
+            `).join('');
+        }
+        
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function showStatus(message, type) {
+            status.className = `status ${type} show`;
+            status.innerHTML = type === 'processing' 
+                ? `<span class="spinner"></span>${message}`
+                : message;
+        }
+        
+        function hideStatus() {
+            status.classList.remove('show');
+        }
+        
+        async function processFiles() {
+            if (selectedFiles.length === 0) return;
+            showStatus('Processing PDFs...', 'processing');
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.innerHTML = '';
+            
+            try {
+                const allData = [];
+                let poNumber = '';
+                let errors = [];
+                
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
+                    showStatus(`Processing ${file.name} (${i + 1}/${selectedFiles.length})...`, 'processing');
+                    
+                    try {
+                        const data = await extractPOData(file);
+                        
+                        if (data.length === 0) {
+                            errors.push(`${file.name}: No line items found`);
+                        } else {
+                            allData.push(...data);
+                            
+                            // Get PO number from first file with data
+                            if (!poNumber && data.length > 0) {
+                                poNumber = data[0]['Purch. Doc.'];
+                            }
+                        }
+                    } catch (error) {
+                        errors.push(`${file.name}: ${error.message}`);
+                        console.error(`Error processing ${file.name}:`, error);
+                    }
+                }
+                
+                if (allData.length === 0) {
+                    showStatus('❌ No line items found in any PDFs', 'error');
+                    if (errors.length > 0) {
+                        console.error('Errors:', errors);
+                    }
+                    return;
+                }
+                
+                // Show warnings if some files had issues
+                if (errors.length > 0 && allData.length > 0) {
+                    console.warn('Some files had issues:', errors);
+                }
+                
+                showStatus(`✓ Extracted ${allData.length} line items from ${selectedFiles.length} PO(s)`, 'success');
+                
+                // Create and store workbook for download option
+                const wb = createWorkbook(allData);
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                const filename = poNumber ? `${poNumber}.xlsx` : 'po_extract.xlsx';
+                window.generatedBlob = blob;
+                window.generatedFilename = filename;
+                window.extractedData = allData;
+                
+                // Display results in table
+                displayResultsTable(allData, filename);
+                
+            } catch (error) {
+                showStatus('❌ Error: ' + error.message, 'error');
+                console.error('Fatal error:', error);
+            }
+        }
+        
+        function displayResultsTable(data, filename) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            
+            // Get column headers for Open Orders
+            const allColumns = Object.keys(data[0]);
+            const hiddenColumns = ['Job Number', 'Folder Link', 'Last Agreed Date', 'Priority', 'Due Status', 'FAI Status', 'Status', 'Updated', 'Notes', 'Project', 'Internal Notes', 'Gross Price'];
+            const visibleColumns = allColumns.filter(col => !hiddenColumns.includes(col));
+            const displayColumns = [...visibleColumns, 'View Notes'];
+            
+            // Build Open Orders table
+            const openOrdersTable = `
+                <div class="results-table">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                ${displayColumns.map(col => `<th>${col}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map((row, rowIndex) => `
+                                <tr>
+                                    ${visibleColumns.map(col => {
+                                        let value = row[col];
+                                        
+                                        // Format dates for display
+                                        if (value instanceof Date) {
+                                            const day = String(value.getDate()).padStart(2, '0');
+                                            const month = value.toLocaleString('en', { month: 'short' });
+                                            const year = String(value.getFullYear()).slice(-2);
+                                            value = `${day}-${month}-${year}`;
+                                        }
+                                        
+                                        return `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                                    }).join('')}
+                                    <td style="text-align: center;">
+                                        <button class="expand-btn" onclick="showNotesModal(${rowIndex})">View</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            // Build Factory preview table
+            const factoryTable = `
+                <div class="results-table">
+                    <table id="factoryTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Product name</th>
+                                <th>Product description</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map((row, rowIndex) => {
+                                const productName = `${row['Description'] || ''} | ${row['Material'] || ''} | ${row['Drawing Number'] || ''}`;
+                                
+                                let dueDate = '';
+                                if (row['Req. Date'] instanceof Date) {
+                                    const day = String(row['Req. Date'].getDate()).padStart(2, '0');
+                                    const month = row['Req. Date'].toLocaleString('en', { month: 'short' });
+                                    const year = String(row['Req. Date'].getFullYear()).slice(-2);
+                                    dueDate = `${day}-${month}-${year}`;
+                                }
+                                
+                                const productDescription = `LINE# ${row['Item']} | PROJECT ${row['Project'] || ''}\nDue ${dueDate}`;
+                                const value = row['Gross Price'] || 0;
+                                
+                                return `
+                                    <tr>
+                                        <td>Basic Product</td>
+                                        <td style="text-align: center;">${row['Sched. Qty'] || 0}</td>
+                                        <td style="text-align: left;">${productName}</td>
+                                        <td class="editable-cell" onclick="editDescription(${rowIndex}, event)">
+                                            <div class="description-display" id="desc-display-${rowIndex}">${productDescription.replace(/\n/g, '<br>')}</div>
+                                        </td>
+                                        <td style="text-align: left;">${value.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            // Build complete HTML with tabs
+            let html = `
+                <div class="preview-tabs">
+                    <button class="preview-tab active" onclick="switchPreview('openorders')">Open Orders</button>
+                    <button class="preview-tab" onclick="switchPreview('factory')">Factory Import</button>
+                </div>
+                
+                <div id="openorders-preview" class="preview-section active">
+                    <div class="preview-header">
+                        <h3>Open Orders Preview</h3>
+                        <div class="preview-actions">
+                            <button class="copy-btn" onclick="copyTableToClipboard()">
+                                📋 Copy
+                            </button>
+                            <button class="download-btn" onclick="downloadFile('${filename}')">
+                                ⬇ Download Excel
+                            </button>
+                        </div>
+                    </div>
+                    ${openOrdersTable}
+                </div>
+                
+                <div id="factory-preview" class="preview-section">
+                    <div class="preview-header">
+                        <h3>Factory Import Preview</h3>
+                        <div class="preview-actions">
+                            <button class="download-btn" onclick="downloadFactoryImport('${filename}')">
+                                🏭 Download for Factory
+                            </button>
+                        </div>
+                    </div>
+                    ${factoryTable}
+                </div>
+                
+                <div id="notesModal" class="modal" onclick="closeModalOnBackdrop(event)">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="modalTitle">Notes</h3>
+                            <button class="modal-close" onclick="closeNotesModal()">×</button>
+                        </div>
+                        <div class="modal-body" id="modalBody"></div>
+                    </div>
+                </div>
+                
+                <div id="notesPopup" class="notes-popup">
+                    <div class="notes-popup-header">
+                        <h4>Add from Notes</h4>
+                        <button class="notes-popup-close" onclick="closeNotesPopup()">×</button>
+                    </div>
+                    <div id="notesSnippets"></div>
+                    <div class="notes-popup-actions">
+                        <button class="insert-snippets-btn" onclick="insertSelectedSnippets()">Insert Selected</button>
+                    </div>
+                </div>
+            `;
+            
+            resultsContainer.innerHTML = html;
+            
+            // Store descriptions for editing
+            window.factoryDescriptions = data.map((row, idx) => {
+                let dueDate = '';
+                if (row['Req. Date'] instanceof Date) {
+                    const day = String(row['Req. Date'].getDate()).padStart(2, '0');
+                    const month = row['Req. Date'].toLocaleString('en', { month: 'short' });
+                    const year = String(row['Req. Date'].getFullYear()).slice(-2);
+                    dueDate = `${day}-${month}-${year}`;
+                }
+                return `LINE# ${row['Item']} | PROJECT ${row['Project'] || ''}\nDue ${dueDate}`;
+            });
+        }
+        
+        function switchPreview(previewType) {
+            // Update tab active states
+            document.querySelectorAll('.preview-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update section visibility
+            document.querySelectorAll('.preview-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(previewType + '-preview').classList.add('active');
+        }
+        
+        function showNotesModal(rowIndex) {
+            const data = window.extractedData;
+            const row = data[rowIndex];
+            const notes = row['Internal Notes'] || 'No notes available';
+            
+            // Get some context for the modal title
+            const lineNum = row['Item'] || '';
+            const description = row['Description'] || '';
+            
+            document.getElementById('modalTitle').textContent = `Notes - Line ${lineNum}: ${description}`;
+            document.getElementById('modalBody').textContent = notes;
+            document.getElementById('notesModal').classList.add('show');
+        }
+        
+        function closeNotesModal() {
+            document.getElementById('notesModal').classList.remove('show');
+        }
+        
+        function closeNotesModal() {
+            document.getElementById('notesModal').classList.remove('show');
+        }
+        
+        function closeModalOnBackdrop(event) {
+            if (event.target.id === 'notesModal') {
+                closeNotesModal();
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Escape key closes modal
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('notesModal');
+                if (modal && modal.classList.contains('show')) {
+                    closeNotesModal();
+                }
+            }
+        });
+        
+        // Info section toggle
+        function toggleInfo() {
+            const content = document.getElementById('infoContent');
+            const icon = document.getElementById('infoToggleIcon');
+            
+            content.classList.toggle('expanded');
+            icon.classList.toggle('expanded');
+        }
+        
+        // Edit description functionality
+        let currentEditingRow = null;
+        let currentTextarea = null;
+        
+        function editDescription(rowIndex, event) {
+            event.stopPropagation();
+            
+            // If already editing this row, do nothing
+            if (currentEditingRow === rowIndex) return;
+            
+            // Save any previous edit
+            if (currentEditingRow !== null) {
+                saveDescription(currentEditingRow, false);
+            }
+            
+            const cell = event.currentTarget;
+            const displayDiv = document.getElementById(`desc-display-${rowIndex}`);
+            const currentText = window.factoryDescriptions[rowIndex];
+            
+            // Replace display with textarea
+            cell.innerHTML = `
+                <textarea class="description-textarea" id="desc-textarea-${rowIndex}">${currentText}</textarea>
+                <div class="description-actions">
+                    <button class="add-notes-btn" onclick="openNotesPopup(${rowIndex}, event)">+ Add from Notes</button>
+                    <button class="save-desc-btn" onclick="saveDescription(${rowIndex}, true)">Save</button>
+                    <button class="cancel-desc-btn" onclick="cancelEdit(${rowIndex})">Cancel</button>
+                </div>
+            `;
+            
+            currentEditingRow = rowIndex;
+            currentTextarea = document.getElementById(`desc-textarea-${rowIndex}`);
+            currentTextarea.focus();
+        }
+        
+        function saveDescription(rowIndex, showFeedback) {
+            const textarea = document.getElementById(`desc-textarea-${rowIndex}`);
+            if (!textarea) return;
+            
+            const newText = textarea.value;
+            window.factoryDescriptions[rowIndex] = newText;
+            
+            // Find the cell - need to get it before innerHTML changes
+            const cell = textarea.closest('.editable-cell');
+            
+            // Completely rebuild the cell to exit edit mode
+            cell.outerHTML = `
+                <td class="editable-cell" onclick="editDescription(${rowIndex}, event)">
+                    <div class="description-display" id="desc-display-${rowIndex}">${newText.replace(/\n/g, '<br>')}</div>
+                </td>
+            `;
+            
+            currentEditingRow = null;
+            currentTextarea = null;
+            
+            if (showFeedback) {
+                // Brief visual feedback
+                setTimeout(() => {
+                    const savedCell = document.getElementById(`desc-display-${rowIndex}`).closest('.editable-cell');
+                    if (savedCell) {
+                        savedCell.style.background = '#d1fae5';
+                        setTimeout(() => {
+                            savedCell.style.background = '';
+                        }, 500);
+                    }
+                }, 10);
+            }
+        }
+        
+        function cancelEdit(rowIndex) {
+            const textarea = document.getElementById(`desc-textarea-${rowIndex}`);
+            if (!textarea) return;
+            
+            const cell = textarea.closest('.editable-cell');
+            const originalText = window.factoryDescriptions[rowIndex];
+            
+            // Completely rebuild the cell to exit edit mode
+            cell.outerHTML = `
+                <td class="editable-cell" onclick="editDescription(${rowIndex}, event)">
+                    <div class="description-display" id="desc-display-${rowIndex}">${originalText.replace(/\n/g, '<br>')}</div>
+                </td>
+            `;
+            
+            currentEditingRow = null;
+            currentTextarea = null;
+        }
+        
+        function openNotesPopup(rowIndex, event) {
+            event.stopPropagation();
+            
+            const data = window.extractedData;
+            const row = data[rowIndex];
+            const notes = row['Internal Notes'] || '';
+            
+            // Parse notes into snippets
+            const snippets = parseNotesIntoSnippets(notes);
+            
+            // Build snippets HTML
+            const snippetsHTML = snippets.map((snippet, idx) => `
+                <div class="notes-snippet" onclick="toggleSnippet(${idx})">
+                    <input type="checkbox" id="snippet-${idx}" onclick="event.stopPropagation()">
+                    <div class="notes-snippet-content">
+                        <div class="notes-snippet-title">${snippet.title}</div>
+                        <div class="notes-snippet-preview">${snippet.preview}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('notesSnippets').innerHTML = snippetsHTML;
+            document.getElementById('notesPopup').classList.add('show');
+            
+            // Store current row for insertion
+            window.currentNotesRow = rowIndex;
+            window.currentSnippets = snippets;
+        }
+        
+        function closeNotesPopup() {
+            document.getElementById('notesPopup').classList.remove('show');
+        }
+        
+        function toggleSnippet(idx) {
+            const checkbox = document.getElementById(`snippet-${idx}`);
+            checkbox.checked = !checkbox.checked;
+        }
+        
+        function insertSelectedSnippets() {
+            const rowIndex = window.currentNotesRow;
+            const textarea = document.getElementById(`desc-textarea-${rowIndex}`);
+            if (!textarea) return;
+            
+            // Get selected snippets
+            const selected = window.currentSnippets
+                .map((snippet, idx) => {
+                    const checkbox = document.getElementById(`snippet-${idx}`);
+                    return checkbox.checked ? snippet.text : null;
+                })
+                .filter(text => text !== null);
+            
+            if (selected.length === 0) {
+                closeNotesPopup();
+                return;
+            }
+            
+            // Insert before "Due" line
+            const currentText = textarea.value;
+            const lines = currentText.split('\n');
+            const dueLineIndex = lines.findIndex(line => line.startsWith('Due '));
+            
+            if (dueLineIndex !== -1) {
+                // Insert before Due line
+                lines.splice(dueLineIndex, 0, ...selected);
+            } else {
+                // Append at end
+                lines.push(...selected);
+            }
+            
+            textarea.value = lines.join('\n');
+            closeNotesPopup();
+            textarea.focus();
+        }
+        
+        function parseNotesIntoSnippets(notes) {
+            if (!notes) return [];
+            
+            const snippets = [];
+            
+            // FAI requirement
+            if (notes.includes('FAI to be completed')) {
+                const match = notes.match(/2\.\s*FAI to be completed[^\n]*(?:\n[^\n]*vendors site[^\n]*)?/);
+                if (match) {
+                    snippets.push({
+                        title: 'FAI Required',
+                        preview: 'FAI to be completed by vendor...',
+                        text: 'FAI to be completed'
+                    });
+                }
+            }
+            
+            // Material certificates
+            if (notes.includes('Material certificates')) {
+                snippets.push({
+                    title: 'Material Certificates',
+                    preview: 'Material certificates required',
+                    text: 'Material certificates required'
+                });
+            }
+            
+            // Painting specs
+            if (notes.includes('Painting Required')) {
+                const paintMatch = notes.match(/Painting Required[^]*?(?=\n\d+\.|Schedule|Apply|$)/);
+                if (paintMatch) {
+                    const paintText = paintMatch[0].trim();
+                    const lines = paintText.split('\n').slice(0, 3); // First few lines
+                    snippets.push({
+                        title: 'Painting Specifications',
+                        preview: lines.join('\n'),
+                        text: paintText
+                    });
+                }
+            }
+            
+            // Schedule and color
+            if (notes.includes('Schedule')) {
+                const schedMatch = notes.match(/Schedule [A-Z]/);
+                const colorMatch = notes.match(/Colour [^\n]+/);
+                if (schedMatch || colorMatch) {
+                    const parts = [];
+                    if (schedMatch) parts.push(schedMatch[0]);
+                    if (colorMatch) parts.push(colorMatch[0]);
+                    snippets.push({
+                        title: 'Schedule & Color',
+                        preview: parts.join(' | '),
+                        text: parts.join('\n')
+                    });
+                }
+            }
+            
+            return snippets;
+        }
+        
+        function copyTableToClipboard() {
+            // Create a temporary table with ALL columns EXCEPT Notes (including hidden ones like Job Number, Folder Link)
+            const data = window.extractedData;
+            const allColumns = Object.keys(data[0]);
+            const columnsToExport = allColumns.filter(col => col !== 'Internal Notes' && col !== 'Project' && col !== 'Gross Price');
+            
+            // Create temporary table element
+            const tempTable = document.createElement('table');
+            tempTable.style.position = 'absolute';
+            tempTable.style.left = '-9999px';
+            
+            // Build data rows ONLY (no header)
+            const tbody = tempTable.createTBody();
+            data.forEach(row => {
+                const tr = tbody.insertRow();
+                columnsToExport.forEach(col => {
+                    const td = tr.insertCell();
+                    let value = row[col];
+                    
+                    // Format dates for display
+                    if (value instanceof Date) {
+                        const day = String(value.getDate()).padStart(2, '0');
+                        const month = value.toLocaleString('en', { month: 'short' });
+                        const year = String(value.getFullYear()).slice(-2);
+                        value = `${day}-${month}-${year}`;
+                    }
+                    
+                    td.textContent = value !== null && value !== undefined ? value : '';
+                });
+            });
+            
+            // Add to DOM temporarily
+            document.body.appendChild(tempTable);
+            
+            // Select and copy
+            const range = document.createRange();
+            range.selectNode(tempTable);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            
+            try {
+                document.execCommand('copy');
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ Copied!';
+                btn.classList.add('copied');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please try again.');
+            }
+            
+            // Clean up
+            window.getSelection().removeAllRanges();
+            document.body.removeChild(tempTable);
+        }
+        
+        function downloadFile(filename) {
+            const url = URL.createObjectURL(window.generatedBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || window.generatedFilename || 'po_extract.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function downloadFactoryImport(baseFilename) {
+            const data = window.extractedData;
+            if (!data || data.length === 0) {
+                alert('No data available for export');
+                return;
+            }
+            
+            // Transform data to Factory import format (without Notes)
+            const factoryData = data.map((row, idx) => {
+                // Product name: Description | Material | Drawing Number (no trailing pipe)
+                const productName = `${row['Description'] || ''} | ${row['Material'] || ''} | ${row['Drawing Number'] || ''}`;
+                
+                // Product description: Use edited version if available
+                const productDescription = window.factoryDescriptions && window.factoryDescriptions[idx]
+                    ? window.factoryDescriptions[idx]
+                    : (() => {
+                        let dueDate = '';
+                        if (row['Req. Date'] instanceof Date) {
+                            const day = String(row['Req. Date'].getDate()).padStart(2, '0');
+                            const month = row['Req. Date'].toLocaleString('en', { month: 'short' });
+                            const year = String(row['Req. Date'].getFullYear()).slice(-2);
+                            dueDate = `${day}-${month}-${year}`;
+                        }
+                        return `LINE# ${row['Item']} | PROJECT ${row['Project'] || ''}\nDue ${dueDate}`;
+                    })();
+                
+                return {
+                    'Type': 'Basic Product',
+                    'Quantity': row['Sched. Qty'] || 0,
+                    'Product name': productName,
+                    'Product description': productDescription,
+                    'Value': row['Gross Price'] || 0
+                };
+            });
+            
+            // Create workbook for Factory import
+            const ws = XLSX.utils.json_to_sheet(factoryData);
+            
+            // Set column widths
+            ws['!cols'] = [
+                { wch: 15 }, // Type
+                { wch: 10 }, // Quantity
+                { wch: 60 }, // Product name
+                { wch: 35 }, // Product description
+                { wch: 12 }  // Value
+            ];
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Factory Import');
+            
+            // Generate and download
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            
+            const filename = baseFilename.replace('.xlsx', '_factory.xlsx');
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        async function extractPOData(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            let fullText = '';
+            let firstPageText = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                
+                if (i === 1) {
+                    firstPageText = pageText;
+                }
+                
+                fullText += pageText + '\n';
+            }
+            
+            return parsePOText(fullText, firstPageText);
+        }
+        
+        function parsePOText(text, firstPageText) {
+            const poMatch = text.match(/Purchase Order No\.?\s*:?\s*(\d+)/);
+            
+            // Extract date from first page near the PO number
+            let dateMatch = firstPageText.match(/Date\s*:?\s*(\d{1,2})\s+([A-Z]{3})\s+(\d{4})/i);
+            
+            if (!dateMatch) {
+                // Fallback to full text
+                dateMatch = text.match(/Date\s*:?\s*(\d{1,2})\s+([A-Z]{3})\s+(\d{4})/i);
+            }
+            
+            const poNumber = poMatch ? poMatch[1] : '';
+            let poDate = null;
+            
+            if (dateMatch) {
+                const day = dateMatch[1];
+                const month = dateMatch[2];
+                const year = dateMatch[3];
+                const poDateStr = `${day} ${month} ${year}`;
+                poDate = formatDate(poDateStr);
+                console.log(`PO Date from header: ${poDateStr}`);
+            } else {
+                console.warn('Could not extract PO date from header');
+            }
+            
+            const lines = [];
+            
+            // Find all Project blocks
+            const projectPattern = /Project\s*:?\s*([A-Z0-9-]+)[\s\S]*?(\d+)\s+(\d+)\s+([\d.]+)\s+(\d{2}\s+[A-Z]{3}\s+\d{4})\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/g;
+            
+            let match;
+            let lineCount = 0;
+            while ((match = projectPattern.exec(text)) !== null) {
+                const project = match[1];
+                const lineNum = match[2];
+                const partId = match[3];
+                const qty = match[4];
+                const deliveryDateStr = match[5];
+                const deliveryDate = formatDate(deliveryDateStr);
+                const grossPrice = parseFloat(match[6].replace(/,/g, ''));
+                
+                // Find description and drawing number in surrounding text
+                // Look both before and after the match
+                const contextStart = Math.max(0, match.index - 300);
+                const contextEnd = Math.min(text.length, match.index + 1500);
+                const context = text.substring(contextStart, contextEnd);
+                
+                // Try to find description - look for capitalized text before "EA" marker
+                // This is flexible to handle any product description
+                let description = '';
+                
+                // Pattern 1: Any sequence of uppercase words (2-6 words) followed by EA and a number
+                let descMatch = context.match(/\b([A-Z0-9][A-Z0-9\s]{5,60}?)\s+EA\s+[0-9]/);
+                
+                if (!descMatch) {
+                    // Pattern 2: Any uppercase words before EA (looser match)
+                    descMatch = context.match(/([A-Z][A-Z0-9]+(?:\s+[A-Z][A-Z0-9]+)+)\s+EA/);
+                }
+                
+                if (descMatch) {
+                    // Clean up the description
+                    description = descMatch[1].trim();
+                    // Remove leading numbers and spaces (like "00 ")
+                    description = description.replace(/^[\d\s]+/, '');
+                    // Clean up multiple spaces
+                    description = description.replace(/\s+/g, ' ').trim();
+                }
+                
+                // Find document/drawing number
+                const docMatch = context.match(/Document Number\s*:?\s*([A-Z0-9-]+)/);
+                const drawingNum = docMatch ? docMatch[1] : '';
+                
+                // Extract notes - everything after "Document Number:" until we hit section markers
+                let notes = '';
+                
+                // First try: Look in the context after document number
+                const docNumberIndex = context.indexOf('Document Number');
+                if (docNumberIndex !== -1) {
+                    const afterDocNum = context.substring(docNumberIndex + 15);
+                    const afterDocNumValue = afterDocNum.replace(/^[:\s]*[A-Z0-9-]+[\s\n]*/, '');
+                    
+                    const notesMatch = afterDocNumValue.match(/^([\s\S]+?)(?=\s*(?:Project:|Page\s+\d+\s+of|Line\s+No\.|Document Number:|Purchase Order No\.|UGL Rail Services Pty Ltd|$))/);
+                    
+                    if (notesMatch) {
+                        let rawNotes = notesMatch[1].trim();
+                        
+                        // Filter out date/timestamp lines
+                        rawNotes = rawNotes.replace(/^\d{2}\s+[A-Z]{3}\s+\d{4}\s+\d{2}:\d{2}.*$/gm, '');
+                        rawNotes = rawNotes.replace(/UGL Rail Services Pty Ltd.*$/gm, '');
+                        rawNotes = rawNotes.replace(/Level \d+,.*$/gm, '');
+                        rawNotes = rawNotes.replace(/ABN.*$/gm, '');
+                        rawNotes = rawNotes.replace(/Invoice to:.*$/gm, '');
+                        rawNotes = rawNotes.replace(/Email:.*$/gm, '');
+                        
+                        // Look for the start of actual notes (starting with "1.")
+                        const notesStart = rawNotes.indexOf('1.');
+                        if (notesStart !== -1) {
+                            rawNotes = rawNotes.substring(notesStart);
+                        }
+                        
+                        // Format the notes to preserve structure
+                        // Add line breaks before numbered items
+                        notes = rawNotes.replace(/(\d+\.)/g, '\n$1');
+                        // Add line breaks before "Schedule", "Apply", "Colour" etc
+                        notes = notes.replace(/(Schedule [A-Z])/g, '\n$1');
+                        notes = notes.replace(/(Apply To)/g, '\n$1');
+                        notes = notes.replace(/(Colour )/g, '\n$1');
+                        notes = notes.replace(/(Internal -)/g, '\n  $1');
+                        notes = notes.replace(/(External -)/g, '\n  $1');
+                        
+                        // Clean up whitespace but preserve intentional line breaks
+                        notes = notes.replace(/[ \t]+/g, ' '); // Multiple spaces to single
+                        notes = notes.replace(/\n\s+\n/g, '\n'); // Remove blank lines
+                        notes = notes.trim();
+                    }
+                }
+                
+                // Second try: If notes are empty or too short, search the broader context for numbered requirements
+                if (notes.length < 50) {
+                    // Look for "1. Material certificates" pattern anywhere in the broader context
+                    const requirementsMatch = context.match(/(1\.\s+Material certificates required[\s\S]+?)(?=Project:|Page\s+\d+\s+of|Line\s+No\.|Purchase Order No\.|UGL Rail Services Pty Ltd|Invoice to:|$)/);
+                    
+                    if (requirementsMatch) {
+                        let rawNotes = requirementsMatch[1].trim();
+                        rawNotes = rawNotes.replace(/^\d{2}\s+[A-Z]{3}\s+\d{4}\s+\d{2}:\d{2}.*$/gm, '');
+                        rawNotes = rawNotes.replace(/UGL Rail Services Pty Ltd.*$/gm, '');
+                        rawNotes = rawNotes.replace(/Level \d+,.*$/gm, '');
+                        
+                        // Format the notes
+                        notes = rawNotes.replace(/(\d+\.)/g, '\n$1');
+                        notes = notes.replace(/(Schedule [A-Z])/g, '\n$1');
+                        notes = notes.replace(/(Apply To)/g, '\n$1');
+                        notes = notes.replace(/(Colour )/g, '\n$1');
+                        notes = notes.replace(/(Internal -)/g, '\n  $1');
+                        notes = notes.replace(/(External -)/g, '\n  $1');
+                        
+                        notes = notes.replace(/[ \t]+/g, ' ');
+                        notes = notes.replace(/\n\s+\n/g, '\n');
+                        notes = notes.trim();
+                    }
+                }
+                
+                console.log(`Line ${lineNum}: Notes="${notes.substring(0, 100)}..." (${notes.length} chars)`);
+                
+                lines.push({
+                    'Created Date': poDate,
+                    'Purch. Doc.': poNumber,
+                    'Item': parseInt(lineNum),
+                    'WBS Elem.': `${project}-XX-XX`,
+                    'Job Number': '',
+                    'Material': parseInt(partId),
+                    'Drawing Number': drawingNum,
+                    'Folder Link': '',
+                    'Description': description,
+                    'Sched. Qty': parseFloat(qty),
+                    'Gr. Qty': 0,
+                    'OS Qty': parseFloat(qty),
+                    'PO Date': deliveryDate,
+                    'Last Agreed Date': deliveryDate,
+                    'Req. Date': deliveryDate,
+                    'Priority': '',
+                    'Due Status': '',
+                    'FAI Status': '',
+                    'Status': '',
+                    'Updated': '',
+                    'Notes': '',
+                    'Project': project,
+                    'Internal Notes': notes,
+                    'Gross Price': grossPrice
+                });
+                
+                lineCount++;
+            }
+            
+            // Fallback parser for simpler table format (no "Project:" labels)
+            if (lineCount === 0) {
+                console.log('Primary parser found no items, trying fallback parser for simpler table format...');
+                
+                // Pattern for POs without vendor part ID, just:
+                // Line | UGL Part ID | Qty | Delivery Date | Unit Price | Ext Price
+                // Example: 10 1000402477 1.00 26 JUN 2026           34.00 34.00
+                const simpleLinePattern = /(\d+)\s+(\d+)\s+([\d.]+)\s+(\d{2}\s+[A-Z]{3}\s+\d{4})\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/g;
+                
+                let simpleMatch;
+                while ((simpleMatch = simpleLinePattern.exec(text)) !== null) {
+                    const lineNum = simpleMatch[1];
+                    const partId = simpleMatch[2];  // UGL Part ID
+                    const qty = simpleMatch[3];
+                    const deliveryDateStr = simpleMatch[4];
+                    const deliveryDate = formatDate(deliveryDateStr);
+                    const grossPrice = parseFloat(simpleMatch[5].replace(/,/g, ''));
+                    
+                    // Find description - look in broader context since it might be on a different page
+                    let description = '';
+                    let drawingNum = '';
+                    
+                    // Look for description anywhere in the full text
+                    // Pattern: uppercase text followed by EA or other UOM
+                    const descPattern = /\b([A-Z][A-Z0-9\/\s]{10,100}?)\s+EA\b/g;
+                    let descMatch;
+                    while ((descMatch = descPattern.exec(text)) !== null) {
+                        let potentialDesc = descMatch[1].trim();
+                        // Clean up
+                        potentialDesc = potentialDesc.replace(/^[\d\s]+/, '');
+                        potentialDesc = potentialDesc.replace(/\s+/g, ' ').trim();
+                        
+                        // Use the first reasonable description found
+                        if (potentialDesc.length > 5 && !description) {
+                            description = potentialDesc;
+                            break;
+                        }
+                    }
+                    
+                    // Look for drawing number (pattern like D17261A01)
+                    const drawMatch = text.match(/\b([A-Z]\d{5,}[A-Z]\d+)\b/);
+                    if (drawMatch) {
+                        drawingNum = drawMatch[1];
+                    }
+                    
+                    console.log(`Fallback parser - Line ${lineNum}: ${description || 'NO DESCRIPTION'}`);
+                    
+                    lines.push({
+                        'Created Date': poDate,
+                        'Purch. Doc.': poNumber,
+                        'Item': parseInt(lineNum),
+                        'WBS Elem.': 'R-0000-XX-XX',  // Default WBS since no project info
+                        'Job Number': '',
+                        'Material': parseInt(partId),
+                        'Drawing Number': drawingNum,
+                        'Folder Link': '',
+                        'Description': description,
+                        'Sched. Qty': parseFloat(qty),
+                        'Gr. Qty': 0,
+                        'OS Qty': parseFloat(qty),
+                        'PO Date': deliveryDate,
+                        'Last Agreed Date': deliveryDate,
+                        'Req. Date': deliveryDate,
+                        'Priority': '',
+                        'Due Status': '',
+                        'FAI Status': '',
+                        'Status': '',
+                        'Updated': '',
+                        'Notes': '',
+                        'Project': '',
+                        'Internal Notes': '',
+                        'Gross Price': grossPrice
+                    });
+                    
+                    lineCount++;
+                }
+            }
+            
+            console.log(`✓ Parsed PO ${poNumber}: ${lineCount} line items`);
+            
+            if (lineCount === 0) {
+                console.warn('Warning: No line items found in PO. Check if PDF format matches expected structure.');
+            }
+            
+            return lines;
+        }
+        
+        function formatDate(dateStr) {
+            try {
+                const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                const parts = dateStr.trim().split(/\s+/);
+                
+                if (parts.length !== 3) {
+                    console.warn('Date parsing issue - unexpected format:', dateStr);
+                    return null;
+                }
+                
+                const day = parseInt(parts[0]);
+                const monthStr = parts[1].toUpperCase();
+                const year = parseInt(parts[2]);
+                
+                const monthIndex = months.indexOf(monthStr);
+                if (monthIndex === -1) {
+                    console.warn('Date parsing issue - invalid month:', monthStr);
+                    return null;
+                }
+                
+                // Create JavaScript Date object (months are 0-indexed in JS)
+                const date = new Date(year, monthIndex, day);
+                
+                // Validate the date
+                if (isNaN(date.getTime())) {
+                    console.warn('Date parsing issue - invalid date:', dateStr);
+                    return null;
+                }
+                
+                console.log(`Date parsed: ${dateStr} → ${date.toDateString()}`);
+                
+                // Return the JS Date object directly - SheetJS will handle Excel conversion
+                return date;
+            } catch (e) {
+                console.error('Date parsing error:', e, dateStr);
+                return null;
+            }
+        }
+        
+        function createWorkbook(data) {
+            // Remove Internal Notes, Project, and Gross Price columns from export
+            const exportData = data.map(row => {
+                const { 'Internal Notes': internalNotes, Project, 'Gross Price': grossPrice, ...rest } = row;
+                return rest;
+            });
+            
+            // Data is already complete, no need to modify
+            const ws = XLSX.utils.json_to_sheet(exportData, { cellDates: true });
+            
+            // Format date columns to display as dd-mmm-yy
+            // A=Created Date, M=PO Date, N=Last Agreed Date, O=Req. Date
+            const dateColumns = ['A', 'M', 'N', 'O'];
+            dateColumns.forEach(col => {
+                for (let row = 2; row <= data.length + 1; row++) {
+                    const cellRef = col + row;
+                    if (ws[cellRef] && ws[cellRef].t === 'd') {
+                        ws[cellRef].z = 'dd-mmm-yy';
+                    }
+                }
+            });
+            
+            // Set column widths - matching new column order
+            const colWidths = [
+                { wch: 12 }, // Created Date
+                { wch: 13 }, // Purch. Doc.
+                { wch: 6 },  // Item
+                { wch: 14 }, // WBS Elem.
+                { wch: 12 }, // Job Number
+                { wch: 12 }, // Material
+                { wch: 16 }, // Drawing Number
+                { wch: 12 }, // Folder Link
+                { wch: 35 }, // Description
+                { wch: 10 }, // Sched. Qty
+                { wch: 8 },  // Gr. Qty
+                { wch: 8 },  // OS Qty
+                { wch: 12 }, // PO Date
+                { wch: 12 }, // Last Agreed Date
+                { wch: 12 }, // Req. Date
+                { wch: 10 }, // Priority
+                { wch: 12 }, // Due Status
+                { wch: 12 }, // FAI Status
+                { wch: 10 }, // Status
+                { wch: 12 }, // Updated
+                { wch: 40 }  // Notes
+            ];
+            ws['!cols'] = colWidths;
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Open Orders');
+            
+            return wb;
+        }
+    </script>
+</body>
+</html>
