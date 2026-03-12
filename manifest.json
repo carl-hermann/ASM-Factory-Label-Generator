@@ -24,11 +24,6 @@
       "matches": ["*://*.factory.app/*"],
       "js": ["factory-scraper.js"],
       "run_at": "document_idle"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
